@@ -21,8 +21,8 @@ namespace sc
 		}
 
 		Item::Status Item::status() const { return m_status; }
-		uint16_t Item::width() const { return m_image.cols; };
-		uint16_t Item::height() const { return m_image.rows; };
+		uint16_t Item::width() const { return (uint16_t)m_image.cols; };
+		uint16_t Item::height() const { return (uint16_t)m_image.rows; };
 
 		// TODO: move to self written image class?
 		cv::Mat& Item::image() { return m_image; };
@@ -100,14 +100,14 @@ namespace sc
 			{
 				const cv::Point& point = polygon[i];
 
-				uint16_t x = point.x + bound.x;
-				uint16_t y = point.y + bound.y;
+				int x = point.x + bound.x;
+				int y = point.y + bound.y;
 				uint16_t u = (uint16_t)ceil(point.x / config.scale());
 				uint16_t v = (uint16_t)ceil(point.y / config.scale());
 
 				vertices.emplace_back(
-					x, y,
-					u, v
+					(uint16_t)x, (uint16_t)y,
+					(uint16_t)u, (uint16_t)v
 				);
 			}
 
@@ -188,7 +188,6 @@ namespace sc
 			split(image(), channels);
 			split(other.image(), otherChannels);
 
-			size_t pixelCount = width() * height();
 			for (int j = 0; imageChannelsCount > j; j++) {
 				for (int w = 0; width() > w; w++) {
 					for (int h = 0; height() > h; h++) {
@@ -305,11 +304,11 @@ namespace sc
 			const double snapPercent = 7;
 
 			// Snaping variables
-			const uint16_t minW = (uint16_t)ceil(PercentOf(src.cols, snapPercent));
-			const uint16_t maxW = src.cols - minW;
+			const int minW = (int)ceil(PercentOf(src.cols, snapPercent));
+			const int maxW = src.cols - minW;
 
-			const uint16_t minH = (uint16_t)ceil(PercentOf(src.rows, snapPercent));
-			const uint16_t maxH = src.rows - minH;
+			const int minH = (int)ceil(PercentOf(src.rows, snapPercent));
+			const int maxH = src.rows - minH;
 
 			for (cv::Point& point : points) {
 				if (minW > point.x) {
@@ -366,5 +365,5 @@ namespace sc
 				}
 			}
 		}
-		}
 	}
+}

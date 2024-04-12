@@ -4,6 +4,26 @@ namespace sc
 {
 	namespace AtlasGenerator
 	{
+		SlicedItem::SlicedItem(cv::Mat& image) : Item(image)
+		{
+		}
+		SlicedItem::SlicedItem(std::filesystem::path path) : Item(path)
+		{
+		}
+		SlicedItem::SlicedItem(cv::Scalar color) : Item(color)
+		{
+		}
+
+		bool SlicedItem::is_rectangle() const
+		{
+			return true;
+		}
+
+		bool SlicedItem::is_sliced() const
+		{
+			return true;
+		}
+
 		void SlicedItem::get_slice(Area area, Rect<int32_t>& guide, Rect<int32_t>& xy, Rect<uint16_t>& uv, Transformation xy_transform)
 		{
 			// TODO: Move to seperate builder class?
@@ -25,12 +45,12 @@ namespace sc
 				vertices[2].uv.u, vertices[2].uv.v
 			);
 
-			uint16_t left_width_size = abs(guide.left - xy_rectangle.x);
-			uint16_t top_height_size = abs(guide.top - xy_rectangle.height);
-			uint16_t bottom_height_size = abs(guide.bottom - xy_rectangle.y);
-			uint16_t middle_width_size = abs(guide.right - xy_rectangle.x) - left_width_size;
-			uint16_t middle_height_size = abs(guide.top - (xy_rectangle.y + bottom_height_size));
-			uint16_t right_width_size = abs(guide.right - xy_rectangle.width);
+			int16_t left_width_size = (int16_t)abs(guide.left - xy_rectangle.x);
+			int16_t top_height_size = (int16_t)abs(guide.top - xy_rectangle.height);
+			int16_t bottom_height_size = (int16_t)abs(guide.bottom - xy_rectangle.y);
+			int16_t middle_width_size = (int16_t)abs(guide.right - xy_rectangle.x) - left_width_size;
+			int16_t middle_height_size = (int16_t)abs(guide.top - (xy_rectangle.y + bottom_height_size));
+			int16_t right_width_size = (int16_t)abs(guide.right - xy_rectangle.width);
 
 			switch (area)
 			{
@@ -48,9 +68,6 @@ namespace sc
 				{
 					uv.x = uv_rectangle.x;
 					uv.y = uv_rectangle.y;
-
-					uv.width = xy.width;
-					uv.height = xy.height;
 				}
 				break;
 			case Area::BottomMiddle:
@@ -65,9 +82,6 @@ namespace sc
 			{
 				uv.x = uv_rectangle.x + left_width_size;
 				uv.y = uv_rectangle.y;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 
 			break;
@@ -83,26 +97,17 @@ namespace sc
 			{
 				uv.x = uv_rectangle.x + left_width_size + middle_width_size;
 				uv.y = uv_rectangle.y;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 			break;
 			case Area::MiddleLeft:
 			{
 				xy.x = xy_rectangle.x;
 				xy.y = xy_rectangle.y + bottom_height_size;
-
-				xy.width = left_width_size;
-				xy.height = middle_height_size;
 			}
 
 			{
 				uv.x = uv_rectangle.x;
 				uv.y = uv_rectangle.y + bottom_height_size;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 			break;
 			case Area::Center:
@@ -117,43 +122,28 @@ namespace sc
 			{
 				uv.x = uv_rectangle.x + left_width_size;
 				uv.y = uv_rectangle.y + bottom_height_size;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 			break;
 			case Area::MiddleRight:
 			{
 				xy.x = guide.right;
 				xy.y = xy_rectangle.y + bottom_height_size;
-
-				xy.width = right_width_size;
-				xy.height = middle_height_size;
 			}
 
 			{
 				uv.x = uv_rectangle.x + left_width_size + middle_width_size;
 				uv.y = uv_rectangle.y + bottom_height_size;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 			break;
 			case Area::TopLeft:
 			{
 				xy.x = xy_rectangle.x;
 				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-
-				xy.width = left_width_size;
-				xy.height = top_height_size;
 			}
 
 			{
 				uv.x = uv_rectangle.x;
 				uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 			break;
 			case Area::TopMiddle:
@@ -168,31 +158,25 @@ namespace sc
 			{
 				uv.x = uv_rectangle.x + left_width_size;
 				uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 			break;
 			case Area::TopRight:
 			{
 				xy.x = guide.right;
 				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-
-				xy.width = right_width_size;
-				xy.height = top_height_size;
 			}
 
 			{
 				uv.x = uv_rectangle.x + left_width_size + middle_width_size;
 				uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-
-				uv.width = xy.width;
-				uv.height = xy.height;
 			}
 			break;
 			default:
 				break;
 			}
+
+			uv.width = (uint16_t)std::clamp<int32_t>(xy.width, 0i16, UINT16_MAX);
+			uv.height = (uint16_t)std::clamp<int32_t>(xy.width, 0i16, UINT16_MAX);
 		}
 	}
 }

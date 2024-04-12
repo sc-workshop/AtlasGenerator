@@ -11,6 +11,7 @@
 #include "generic/ref.h"
 #include "Item/SlicedItem.h"
 #include "PackagingException.h"
+#include "exception/GeneralRuntimeException.h"
 
 namespace sc {
 	namespace AtlasGenerator
@@ -21,6 +22,7 @@ namespace sc {
 
 		public:
 			Generator(const Config& config);
+			virtual ~Generator() = default;
 
 		public:
 			uint8_t generate(Container<Ref<Item>>& items);

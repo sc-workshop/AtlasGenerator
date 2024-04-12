@@ -1,5 +1,6 @@
 {
     "cmake.configureSettings": {
-        "SC_BUILD_ATLAS_GENERATOR_CLI": "ON"
+        "SC_BUILD_ATLAS_GENERATOR_CLI": true
     },
+    "cmake.automaticReconfigure": false,
 }

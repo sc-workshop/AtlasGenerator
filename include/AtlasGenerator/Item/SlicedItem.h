@@ -26,26 +26,13 @@ namespace sc
 				TopRight
 			};
 		public:
-			SlicedItem(cv::Mat& image) : Item(image)
-			{
-			}
-			SlicedItem(std::filesystem::path path) : Item(path)
-			{
-			}
-			SlicedItem(cv::Scalar color) : Item(color)
-			{
-			}
+			SlicedItem(cv::Mat& image);
+			SlicedItem(std::filesystem::path path);
+			SlicedItem(cv::Scalar color);
 
 		public:
-			virtual bool is_rectangle() const
-			{
-				return true;
-			}
-
-			virtual bool is_sliced() const
-			{
-				return true;
-			}
+			virtual bool is_rectangle() const;
+			virtual bool is_sliced() const;
 
 		public:
 			void get_slice(Area area, Rect<int32_t>& guide, Rect<int32_t>& xy, Rect<uint16_t>& uv, Transformation xy_transform = Transformation());

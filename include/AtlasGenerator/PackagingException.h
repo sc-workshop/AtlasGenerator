@@ -6,7 +6,7 @@ namespace sc
 {
 	namespace AtlasGenerator
 	{
-		class PackagingException : GeneralRuntimeException
+		class PackagingException : public GeneralRuntimeException
 		{
 		public:
 			enum class Reason
@@ -18,7 +18,7 @@ namespace sc
 			};
 		public:
 			PackagingException(Reason reason, size_t item_index = SIZE_MAX)
-				: GeneralRuntimeException("PackagingException"), m_item_index(item_index), m_reason(reason)
+				: GeneralRuntimeException("PackagingException"), m_reason(reason), m_item_index(item_index)
 			{
 				switch (reason)
 				{
@@ -37,12 +37,12 @@ namespace sc
 				}
 			}
 		public:
-			Reason reason()
+			Reason reason() const
 			{
 				return m_reason;
 			};
 
-			size_t index()
+			size_t index() const
 			{
 				return m_item_index;
 			};

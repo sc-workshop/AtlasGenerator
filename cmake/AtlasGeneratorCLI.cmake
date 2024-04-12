@@ -1,3 +1,5 @@
+include(cmake/Dependecies.cmake)
+
 set(TARGET "AtlasGeneratorCLI")
 
 set(SOURCES

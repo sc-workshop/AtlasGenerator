@@ -48,6 +48,8 @@ namespace sc
 			Item(std::filesystem::path path);
 			Item(cv::Scalar color);
 
+			virtual ~Item() = default;
+
 			// Image Info
 		public:
 			virtual Status status() const;

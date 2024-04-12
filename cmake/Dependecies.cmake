@@ -42,7 +42,6 @@ set(WITH_PROTOBUF OFF)
 set(WITH_IMGCODEC_PXM OFF)
 set(WITH_IMGCODEC_PFM OFF)
 set(WITH_QUIRC OFF)
-set(BUILD_SHARED_LIBS ON)
 set(BUILD_opencv_apps OFF)
 set(BUILD_opencv_js OFF)
 set(BUILD_ANDROID_PROJECTS OFF)
@@ -50,12 +49,14 @@ set(BUILD_ANDROID_EXAMPLES OFF)
 set(BUILD_DOCS OFF)
 set(BUILD_PACKAGE OFF)
 set(BUILD_JAVA OFF)
-set(BUILD_LIST 
-    core
-    imgproc
-    imgcodecs
-	highgui
-)
+
+if (NOT DEFINED BUILD_LIST)
+    set(BUILD_LIST 
+        core
+        imgproc
+        imgcodecs
+    )
+endif()
 
 FetchContent_Declare(
         opencv

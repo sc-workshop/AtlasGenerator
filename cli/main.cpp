@@ -6,7 +6,7 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include "exception/GeneralRuntimeException.h"
+#include "AtlasGenerator/PackagingException.h"
 using namespace sc;
 
 #define print(message) std::cout << message << std::endl
@@ -90,7 +90,6 @@ public:
 };
 
 #pragma region CV Debug Functions
-inline cv::RNG rng = cv::RNG(time(NULL));
 
 void ShowImage(std::string name, cv::Mat& image) {
 	cv::namedWindow(name, cv::WINDOW_NORMAL);
@@ -151,7 +150,7 @@ void process(ProgramOptions& options)
 	fs::create_directory(options.output);
 
 	fs::path atlas_data_output = options.output / "atlas.txt";
-	std::ofstream atlas(atlas_data_output);
+	std::ofstream atlas_data(atlas_data_output);
 
 	std::vector<Ref<AtlasGenerator::Item>> items;
 
@@ -186,8 +185,8 @@ void process(ProgramOptions& options)
 			if (guide.size() != 4) continue;
 
 			guides[items.size()] = Rect<int32_t>(
-				ceil(guide[0]), ceil(guide[3]),
-				ceil(guide[1]), ceil(guide[2])
+				(int32_t)ceil(guide[0]), (int32_t)ceil(guide[3]),
+				(int32_t)ceil(guide[1]), (int32_t)ceil(guide[2])
 				);
 
 			auto item = CreateRef<AtlasGenerator::SlicedItem>(path);
@@ -206,8 +205,28 @@ void process(ProgramOptions& options)
 	);
 
 	AtlasGenerator::Generator generator(config);
-
-	uint8_t bin_count = generator.generate(items);
+	uint8_t bin_count = 0;
+	try
+	{
+		bin_count = generator.generate(items);
+	}
+	catch (const AtlasGenerator::PackagingException& exception)
+	{
+		size_t item_index = exception.index();
+		if (item_index == SIZE_MAX)
+		{
+			std::cout << "Unknown package exception" << std::endl;
+		}
+		else
+		{
+			std::cout << "Failed to package item \"" << options.files[item_index] << "\"" << std::endl;
+		}
+		std::cout << exception.message() << std::endl;
+	}
+	catch (const sc::GeneralRuntimeException& exception)
+	{
+		std::cout << exception.message() << std::endl;
+	}
 
 	for (uint8_t i = 0; bin_count > i; i++)
 	{
@@ -224,33 +243,33 @@ void process(ProgramOptions& options)
 		AtlasGenerator::Item& item = *items[i];
 		fs::path& path = options.files[i];
 
-		atlas << "path=" << path << std::endl;
-		atlas << "textureIndex=" << std::to_string(item.texture_index) << std::endl;
+		atlas_data << "path=" << path << std::endl;
+		atlas_data << "textureIndex=" << std::to_string(item.texture_index) << std::endl;
 
-		atlas << "uv=";
+		atlas_data << "uv=";
 		for (AtlasGenerator::Vertex vertex : item.vertices)
 		{
 			item.transform.transform_point(vertex.uv);
-			atlas << "[";
-			atlas << std::to_string(vertex.uv.x);
-			atlas << ",";
-			atlas << std::to_string(vertex.uv.y);
-			atlas << "]";
+			atlas_data << "[";
+			atlas_data << std::to_string(vertex.uv.x);
+			atlas_data << ",";
+			atlas_data << std::to_string(vertex.uv.y);
+			atlas_data << "]";
 		}
 
-		atlas << std::endl;
+		atlas_data << std::endl;
 
-		atlas << "xy=";
+		atlas_data << "xy=";
 		for (AtlasGenerator::Vertex& vertex : item.vertices)
 		{
-			atlas << "[";
-			atlas << std::to_string(vertex.xy.x);
-			atlas << ",";
-			atlas << std::to_string(vertex.xy.y);
-			atlas << "]";
+			atlas_data << "[";
+			atlas_data << std::to_string(vertex.xy.x);
+			atlas_data << ",";
+			atlas_data << std::to_string(vertex.xy.y);
+			atlas_data << "]";
 		}
 
-		atlas << std::endl << std::endl;
+		atlas_data << std::endl << std::endl;
 	}
 
 	if (options.is_debug)

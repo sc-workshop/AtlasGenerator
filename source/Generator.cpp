@@ -31,8 +31,6 @@ namespace sc
 					if (item_index != SIZE_MAX) continue;
 				}
 
-				float perimeter = 0;
-
 				if (item.status() == Item::Status::Unset)
 				{
 					item.generate_image_polygon(m_config);
@@ -77,7 +75,7 @@ namespace sc
 
 				if (item_index != SIZE_MAX)
 				{
-					Item& other = *items[item_index];
+					//Item& other = *items[item_index];
 					items[i] = items[item_index];
 					//item.texture_index = other.texture_index;
 					//item.vertices = other.vertices;
