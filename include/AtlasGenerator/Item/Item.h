@@ -19,6 +19,23 @@ namespace sc
 		class Item
 		{
 		public:
+			struct Transformation
+			{
+				// Rotation in radians
+				double rotation = 0.0;
+				Point<int32_t> translation = Point<int32_t>(0, 0);
+
+				template<typename T>
+				void transform_point(Point<T>& vertex)
+				{
+					T x = vertex.x;
+					T y = vertex.y;
+
+					vertex.x = (T)ceil(x * std::cos(rotation) - y * std::sin(rotation) + translation.x);
+					vertex.y = (T)ceil(y * std::cos(rotation) + x * std::sin(rotation) + translation.y);
+				}
+			};
+		public:
 			enum class Status
 			{
 				Unset = 0,
@@ -29,6 +46,7 @@ namespace sc
 		public:
 			Item(cv::Mat& image);
 			Item(std::filesystem::path path);
+			Item(cv::Scalar color);
 
 			// Image Info
 		public:
@@ -44,11 +62,17 @@ namespace sc
 			uint8_t texture_index = 0xFF;
 			Container<Vertex> vertices;
 
+			// UV Transformation
+			Transformation transform;
+
 		public:
-			bool is_rectangle();
+			virtual bool is_rectangle() const;
+			virtual bool is_sliced() const;
 
+		public:
+			// XY coords bound
+			Rect<int32_t> bound();
 			void generate_image_polygon(const Config& config);
-
 			float perimeter() const;
 
 		public:

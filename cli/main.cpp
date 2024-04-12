@@ -20,7 +20,8 @@ void print_help(char* executable)
 	print("Arguments: Paths to images or to folder with image files");
 	print("Flags: ");
 	print("--force: rewrite output folder even if it already exists");
-	print("--debug: draws and shows polygon for each item");
+	print("--debug: draws and shows atlas of polygons and atlas itself");
+	print("--item-debug: draws and shows polygon for each item");
 }
 
 class ProgramOptions
@@ -44,6 +45,12 @@ public:
 			if (argument == "--debug")
 			{
 				is_debug = true;
+				continue;
+			}
+
+			if (argument == "--item-debug")
+			{
+				is_item_debug = true;
 				continue;
 			}
 
@@ -79,6 +86,7 @@ public:
 	std::vector<fs::path> files;
 	bool force_output = false;
 	bool is_debug = false;
+	bool is_item_debug = false;
 };
 
 #pragma region CV Debug Functions
@@ -145,13 +153,50 @@ void process(ProgramOptions& options)
 	fs::path atlas_data_output = options.output / "atlas.txt";
 	std::ofstream atlas(atlas_data_output);
 
-	std::vector<AtlasGenerator::Item> items;
+	std::vector<Ref<AtlasGenerator::Item>> items;
+
+	std::map<size_t, Rect<int32_t>> guides;
+	std::map<size_t, AtlasGenerator::Item::Transformation> guide_transform;
 
 	for (fs::path& path : options.files)
 	{
-		items.emplace_back(
-			path
-		);
+		if (path.extension() != ".png") continue;
+
+		fs::path guide_path = fs::path(path).replace_extension().concat("_guide.txt");
+
+		if (!fs::exists(guide_path))
+		{
+			items.push_back(
+				CreateRef<AtlasGenerator::Item>(path)
+			);
+		}
+		else
+		{
+			std::vector<float> guide;
+			std::ifstream guide_file(guide_path);
+
+			std::string line;
+			while (std::getline(guide_file, line, '\n'))
+			{
+				guide.push_back(
+					std::stof(line)
+				);
+			}
+
+			if (guide.size() != 4) continue;
+
+			guides[items.size()] = Rect<int32_t>(
+				ceil(guide[0]), ceil(guide[3]),
+				ceil(guide[1]), ceil(guide[2])
+				);
+
+			auto item = CreateRef<AtlasGenerator::SlicedItem>(path);
+			guide_transform[items.size()] = { 0.0, Point<int32_t>(-(item->width() / 2), -(item->height() / 2)) };
+
+			items.push_back(
+				item
+			);
+		}
 	}
 
 	AtlasGenerator::Config config(
@@ -174,39 +219,38 @@ void process(ProgramOptions& options)
 		);
 	}
 
+	for (size_t i = 0; items.size() > i; i++)
 	{
-		for (size_t i = 0; items.size() > i; i++)
+		AtlasGenerator::Item& item = *items[i];
+		fs::path& path = options.files[i];
+
+		atlas << "path=" << path << std::endl;
+		atlas << "textureIndex=" << std::to_string(item.texture_index) << std::endl;
+
+		atlas << "uv=";
+		for (AtlasGenerator::Vertex vertex : item.vertices)
 		{
-			AtlasGenerator::Item& item = items[i];
-			fs::path& path = options.files[i];
-
-			atlas << "path=" << path << std::endl;
-			atlas << "textureIndex=" << std::to_string(item.texture_index) << std::endl;
-
-			atlas << "uv=";
-			for (AtlasGenerator::Vertex& vertex : item.vertices)
-			{
-				atlas << "[";
-				atlas << std::to_string(vertex.uv.x);
-				atlas << ",";
-				atlas << std::to_string(vertex.uv.y);
-				atlas << "]";
-			}
-
-			atlas << std::endl;
-
-			atlas << "xy=";
-			for (AtlasGenerator::Vertex& vertex : item.vertices)
-			{
-				atlas << "[";
-				atlas << std::to_string(vertex.xy.x);
-				atlas << ",";
-				atlas << std::to_string(vertex.xy.y);
-				atlas << "]";
-			}
-
-			atlas << std::endl << std::endl;
+			item.transform.transform_point(vertex.uv);
+			atlas << "[";
+			atlas << std::to_string(vertex.uv.x);
+			atlas << ",";
+			atlas << std::to_string(vertex.uv.y);
+			atlas << "]";
 		}
+
+		atlas << std::endl;
+
+		atlas << "xy=";
+		for (AtlasGenerator::Vertex& vertex : item.vertices)
+		{
+			atlas << "[";
+			atlas << std::to_string(vertex.xy.x);
+			atlas << ",";
+			atlas << std::to_string(vertex.xy.y);
+			atlas << "]";
+		}
+
+		atlas << std::endl << std::endl;
 	}
 
 	if (options.is_debug)
@@ -223,13 +267,91 @@ void process(ProgramOptions& options)
 			);
 		}
 
-		for (AtlasGenerator::Item& item : items) {
-			std::vector<cv::Point> contour;
-			for (AtlasGenerator::Vertex point : item.vertices) {
-				contour.push_back(cv::Point(point.uv.x, point.uv.y));
+		for (size_t i = 0; items.size() > i; i++) {
+			AtlasGenerator::Item& item = *items[i];
+			std::vector<cv::Point> atlas_contour;
+			std::vector<cv::Point> item_contour;
+
+			for (AtlasGenerator::Vertex vertex : item.vertices) {
+				item.transform.transform_point(vertex.uv);
+
+				atlas_contour.push_back(cv::Point(vertex.uv.x, vertex.uv.y));
+				item_contour.push_back(cv::Point(vertex.xy.x, vertex.xy.y));
 			}
-			cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-			fillPoly(sheets[item.texture_index], contour, color);
+
+			{
+				cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+				fillPoly(sheets[item.texture_index], atlas_contour, color);
+			}
+
+			if (options.is_item_debug)
+			{
+				cv::Mat image_contour(item.image().size(), CV_8UC4, cv::Scalar(0));
+				{
+					cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+					fillPoly(image_contour, item_contour, color);
+				}
+
+				std::vector<cv::Mat> matrices = {
+					image_contour, item.image()
+				};
+
+				if (item.is_sliced())
+				{
+					AtlasGenerator::SlicedItem& sliced_item = *(AtlasGenerator::SlicedItem*)&item;
+					cv::Mat sliced_image(item.image().size(), CV_8UC4, cv::Scalar(0));
+					for (uint8_t area_index = (uint8_t)AtlasGenerator::SlicedItem::Area::BottomLeft; (uint8_t)AtlasGenerator::SlicedItem::Area::TopRight >= area_index; area_index++)
+					{
+						Rect<int32_t> xy;
+						Rect<uint16_t> uv;
+
+						sliced_item.get_slice(
+							(AtlasGenerator::SlicedItem::Area)area_index,
+							guides[i],
+							xy, uv,
+							guide_transform[i]
+						);
+
+						if (xy.width > 0 && xy.height > 0)
+						{
+							{
+								cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+
+								auto points = std::vector<cv::Point>{
+										cv::Point(xy.x - guide_transform[i].translation.x, xy.y - guide_transform[i].translation.y),
+										cv::Point((xy.x - guide_transform[i].translation.x) + xy.width, xy.y - guide_transform[i].translation.y),
+										cv::Point((xy.x - guide_transform[i].translation.x) + xy.width, (xy.y - guide_transform[i].translation.y) + xy.height),
+										cv::Point(xy.x - guide_transform[i].translation.x, (xy.y - guide_transform[i].translation.y) + xy.height),
+								};
+								fillPoly(
+									sliced_image,
+									points,
+									color
+								);
+							}
+
+							{
+								auto points = std::vector<cv::Point>{
+										cv::Point(uv.x, uv.y),
+										cv::Point(uv.x + uv.width, uv.y),
+										cv::Point(uv.x + uv.width, uv.y + uv.height),
+										cv::Point(uv.x, uv.y + uv.height)
+								};
+
+								cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+								fillPoly(sheets[item.texture_index], points, color);
+							}
+						}
+					}
+					matrices.push_back(sliced_image);
+				}
+
+				{
+					cv::Mat canvas;
+					cv::hconcat(matrices, canvas);
+					ShowImage("Item", canvas);
+				}
+			}
 		}
 
 		for (cv::Mat& sheet : sheets) {
@@ -238,6 +360,10 @@ void process(ProgramOptions& options)
 
 		for (uint8_t i = 0; bin_count > i; i++) {
 			ShowImage("Atlas", generator.get_atlas(i));
+		}
+
+		if (options.is_item_debug)
+		{
 		}
 
 		cv::destroyAllWindows();

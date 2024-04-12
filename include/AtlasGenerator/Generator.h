@@ -8,6 +8,8 @@
 
 #include "Config.h"
 #include "Item/Item.h"
+#include "generic/ref.h"
+#include "Item/SlicedItem.h"
 #include "PackagingException.h"
 
 namespace sc {
@@ -21,7 +23,7 @@ namespace sc {
 			Generator(const Config& config);
 
 		public:
-			uint8_t generate(Container<Item>& items);
+			uint8_t generate(Container<Ref<Item>>& items);
 
 			cv::Mat& get_atlas(uint8_t atlas);
 

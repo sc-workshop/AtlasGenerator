@@ -15,6 +15,11 @@ namespace sc
 			m_image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
 		}
 
+		Item::Item(cv::Scalar color)
+		{
+			m_image = cv::Mat(1, 1, CV_8UC4, color);
+		}
+
 		Item::Status Item::status() const { return m_status; }
 		uint16_t Item::width() const { return m_image.cols; };
 		uint16_t Item::height() const { return m_image.rows; };
@@ -22,10 +27,15 @@ namespace sc
 		// TODO: move to self written image class?
 		cv::Mat& Item::image() { return m_image; };
 
-		bool Item::is_rectangle()
+		bool Item::is_rectangle() const
 		{
 			return width() <= 10 || height() <= 10;
 		};
+
+		bool Item::is_sliced() const
+		{
+			return false;
+		}
 
 		void Item::generate_image_polygon(const Config& config)
 		{
@@ -47,7 +57,7 @@ namespace sc
 				break;
 			}
 
-			Rect bound = boundingRect(alpha_mask);
+			cv::Rect bound = boundingRect(alpha_mask);
 			if (bound.width <= 0) bound.width = 1;
 			if (bound.height <= 0) bound.height = 1;
 
@@ -128,6 +138,36 @@ namespace sc
 					powf((float)(pointEnd.uv.y - pointEnd.uv.x), 2.0f)
 				);
 				result += distance;
+			}
+
+			return result;
+		}
+
+		Rect<int32_t> Item::bound()
+		{
+			Rect<int32_t> result(INT_MAX, 0, 0, INT_MAX);
+
+			for (Vertex& vertex : vertices)
+			{
+				if (result.left > vertex.xy.x)
+				{
+					result.left = vertex.xy.x;
+				}
+
+				if (result.top < vertex.xy.y)
+				{
+					result.top = vertex.xy.y;
+				}
+
+				if (result.right < vertex.xy.x)
+				{
+					result.right = vertex.xy.x;
+				}
+
+				if (result.bottom > vertex.xy.y)
+				{
+					result.bottom = vertex.xy.y;
+				}
 			}
 
 			return result;
@@ -326,5 +366,5 @@ namespace sc
 				}
 			}
 		}
+		}
 	}
-}

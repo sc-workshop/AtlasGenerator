@@ -2,6 +2,7 @@
 
 // SC CORE
 #include <math/point.h>
+#include <math/rect.h>
 
 #include <stdint.h>
 
@@ -12,11 +13,11 @@ namespace sc
 		class Vertex {
 		public:
 			Vertex();
-			Vertex(uint16_t x, uint16_t y, uint16_t u, uint16_t v);
+			Vertex(int32_t x, int32_t y, uint16_t u, uint16_t v);
 
 		public:
 			Point<uint16_t> uv;
-			Point<uint16_t> xy;
+			Point<int32_t> xy;
 		};
 	}
 }

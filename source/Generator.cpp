@@ -10,11 +10,11 @@ namespace sc
 		{
 		}
 
-		uint8_t Generator::generate(Container<Item>& items)
+		uint8_t Generator::generate(Container<Ref<Item>>& items)
 		{
 			for (size_t i = 0; items.size() > i; i++)
 			{
-				Item& item = items[i];
+				Item& item = *items[i];
 
 				{
 					size_t item_index = SIZE_MAX;
@@ -77,7 +77,7 @@ namespace sc
 
 				if (item_index != SIZE_MAX)
 				{
-					Item& other = items[item_index];
+					Item& other = *items[item_index];
 					items[i] = items[item_index];
 					//item.texture_index = other.texture_index;
 					//item.vertices = other.vertices;
@@ -181,29 +181,24 @@ namespace sc
 			for (size_t i = 0; m_items.size() > i; i++) {
 				libnest2d::Item packer_item = packer_items[i];
 				Item& item = *m_items[i];
-				item.texture_index = (uint8_t)packer_item.binId();
 
 				auto rotation = packer_item.rotation();
-				double rotation_angle = -(rotation.toDegrees());
+				double rotation_degree = -(rotation.toDegrees());
 
 				auto shape = packer_item.transformedShape();
 				auto box = packer_item.boundingBox();
 
-				// Point processing
-				for (size_t j = 0; item.vertices.size() > j; j++) {
-					uint16_t x = item.vertices[j].uv.x;
-					uint16_t y = item.vertices[j].uv.y;
+				// Item Data
+				item.texture_index = (uint8_t)packer_item.binId();
+				item.transform.rotation = rotation;
+				item.transform.translation.x = (int32_t)libnest2d::getX(packer_item.translation()) - m_config.extrude();
+				item.transform.translation.y = (int32_t)libnest2d::getY(packer_item.translation()) - m_config.extrude();
 
-					uint16_t u = (uint16_t)ceil(x * rotation.cos() - y * rotation.sin() + libnest2d::getX(packer_item.translation())) - m_config.extrude();
-					uint16_t v = (uint16_t)ceil(y * rotation.cos() + x * rotation.sin() + libnest2d::getY(packer_item.translation())) - m_config.extrude();
-
-					item.vertices[j].uv = { u, v };
-				}
-
-				if (rotation_angle != 0) {
+				// Image Transform
+				if (rotation_degree != 0) {
 					cv::Point2f center((float)((item.width() - 1) / 2.0), (float)((item.height() - 1) / 2.0));
-					cv::Mat rot = cv::getRotationMatrix2D(center, rotation_angle, 1.0);
-					cv::Rect2f bbox = cv::RotatedRect(cv::Point2f(), item.image().size(), (float)rotation_angle).boundingRect2f();
+					cv::Mat rot = cv::getRotationMatrix2D(center, rotation_degree, 1.0);
+					cv::Rect2f bbox = cv::RotatedRect(cv::Point2f(), item.image().size(), (float)rotation_degree).boundingRect2f();
 
 					rot.at<double>(0, 2) += bbox.width / 2.0 - item.width() / 2.0;
 					rot.at<double>(1, 2) += bbox.height / 2.0 - item.height() / 2.0;
