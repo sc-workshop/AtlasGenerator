@@ -17,7 +17,7 @@ sc_core_base_setup(${TARGET})
 target_link_libraries(${TARGET} PUBLIC 
     SupercellCore
     libnest2d
-    opencv_core opencv_imgproc opencv_imgcodecs opencv_highgui
+    opencv_core opencv_imgproc opencv_imgcodecs 
 )
 
 target_include_directories(${TARGET}
@@ -28,5 +28,4 @@ target_include_directories(${TARGET}
     ${OPENCV_MODULE_opencv_core_LOCATION}/include
     ${OPENCV_MODULE_opencv_imgproc_LOCATION}/include
     ${OPENCV_MODULE_opencv_imgcodecs_LOCATION}/include
-    ${OPENCV_MODULE_opencv_highgui_LOCATION}/include
 )
