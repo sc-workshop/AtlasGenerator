@@ -17,7 +17,7 @@ set(LIBNEST2D_HEADER_ONLY ON)
 FetchContent_Declare(
     libnest2d
     GIT_REPOSITORY https://github.com/tamasmeszaros/libnest2d.git
-    GIT_TAG 0.4
+    GIT_TAG master
 )
 FetchContent_MakeAvailable(libnest2d)
 
