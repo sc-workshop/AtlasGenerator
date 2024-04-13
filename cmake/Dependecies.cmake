@@ -50,7 +50,7 @@ set(BUILD_DOCS OFF)
 set(BUILD_PACKAGE OFF)
 set(BUILD_JAVA OFF)
 
-if (NOT DEFINED BUILD_LIST)
+if (NOT DEFINED BUILD_LIST OR NOT BUILD_LIST)
     set(BUILD_LIST 
         core
         imgproc

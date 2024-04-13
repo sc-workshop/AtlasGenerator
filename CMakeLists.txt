@@ -4,7 +4,7 @@ project(ScAtlasGenerator)
 
 option(SC_BUILD_ATLAS_GENERATOR_CLI "Build Atlas Generator CLI" OFF)
 
-if (SC_BUILD_ATLAS_GENERATOR_CLI)
+if (${SC_BUILD_ATLAS_GENERATOR_CLI})
     # OpenCV additional things
     set(BUILD_LIST CACHE INTERNAL ""
         core
@@ -16,7 +16,4 @@ if (SC_BUILD_ATLAS_GENERATOR_CLI)
     include(cmake/AtlasGeneratorCLI.cmake)
 endif()
 
-
-
 include(cmake/AtlasGenerator.cmake)
-
