@@ -93,7 +93,7 @@ namespace sc
 
 		protected:
 			Status m_status = Status::Unset;
-			bool m_preprocessed = true;
+			bool m_preprocessed = false;
 			cv::Mat m_image;
 		};
 	}
