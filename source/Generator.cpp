@@ -16,21 +16,6 @@ namespace sc
 			{
 				Item& item = *items[i];
 
-				{
-					size_t item_index = SIZE_MAX;
-					// Searching for duplicates
-					for (size_t j = 0; i > j; j++)
-					{
-						if (items[j] == items[i])
-						{
-							item_index = j;
-							break;
-						}
-					}
-					m_duplicate_indices.push_back(item_index);
-					if (item_index != SIZE_MAX) continue;
-				}
-
 				if (item.status() == Item::Status::Unset)
 				{
 					item.generate_image_polygon(m_config);
@@ -50,6 +35,21 @@ namespace sc
 					if (item.image().channels() != 4)
 					{
 						throw PackagingException(PackagingException::Reason::UnsupportedImage, i);
+					}
+
+					{
+						size_t item_index = SIZE_MAX;
+						// Searching for duplicates
+						for (size_t j = 0; i > j; j++)
+						{
+							if (*items[j] == item)
+							{
+								item_index = j;
+								break;
+							}
+						}
+						m_duplicate_indices.push_back(item_index);
+						if (item_index != SIZE_MAX) continue;
 					}
 
 					m_items.push_back(&item);

@@ -14,6 +14,7 @@ if (${SC_BUILD_ATLAS_GENERATOR_CLI})
     )
     
     include(cmake/AtlasGeneratorCLI.cmake)
+	
+else()
+	include(cmake/AtlasGenerator.cmake)
 endif()
-
-include(cmake/AtlasGenerator.cmake)

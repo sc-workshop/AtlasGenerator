@@ -103,6 +103,9 @@ namespace sc
 			{
 				xy.x = xy_rectangle.x;
 				xy.y = xy_rectangle.y + bottom_height_size;
+
+				xy.width = left_width_size;
+				xy.height = middle_height_size;
 			}
 
 			{
@@ -128,6 +131,9 @@ namespace sc
 			{
 				xy.x = guide.right;
 				xy.y = xy_rectangle.y + bottom_height_size;
+
+				xy.width = right_width_size;
+				xy.height = middle_height_size;
 			}
 
 			{
@@ -139,6 +145,9 @@ namespace sc
 			{
 				xy.x = xy_rectangle.x;
 				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
+
+				xy.width = left_width_size;
+				xy.height = top_height_size;
 			}
 
 			{
@@ -164,6 +173,9 @@ namespace sc
 			{
 				xy.x = guide.right;
 				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
+
+				xy.width = right_width_size;
+				xy.height = top_height_size;
 			}
 
 			{
@@ -176,7 +188,7 @@ namespace sc
 			}
 
 			uv.width = (uint16_t)std::clamp<int32_t>(xy.width, 0i16, UINT16_MAX);
-			uv.height = (uint16_t)std::clamp<int32_t>(xy.width, 0i16, UINT16_MAX);
+			uv.height = (uint16_t)std::clamp<int32_t>(xy.height, 0i16, UINT16_MAX);
 		}
 	}
 }
