@@ -229,7 +229,7 @@ namespace sc
 					{
 						Vec4b pixel = m_image.at<Vec4b>(h, w);
 
-						if (pixel[3] < 4) {
+						if (pixel[3] <= 2) {
 							m_image.at<cv::Vec4b>(h, w) = { 0, 0, 0, 0 };
 							continue;
 						};
@@ -247,12 +247,14 @@ namespace sc
 					break;
 					case 2:
 					{
-						Vec2b pixel = m_image.at<Vec2b>(h, w);
+						Vec2b& pixel = m_image.at<Vec2b>(h, w);
 
-						if (pixel[1] < 4) {
-							m_image.at<cv::Vec2b>(h, w) = { 0, 0 };
+						if (pixel[1] <= 2) {
+							pixel[0] = 0;
+							pixel[1] = 0;
 							continue;
 						};
+
 						float alpha = static_cast<float>(pixel[3]) / 255.0f;
 						m_image.at<Vec2b>(h, w) = {
 							static_cast<uchar>(pixel[0] * alpha),
@@ -272,8 +274,8 @@ namespace sc
 
 			for (std::vector<cv::Point>& points : contours) {
 #ifdef CV_DEBUG
-				Mat drawingImage;
-				cvtColor(image, drawingImage, COLOR_GRAY2BGR);
+				cv::Mat drawingImage;
+				cvtColor(image, drawingImage, cv::COLOR_GRAY2BGR);
 				ShowContour(drawingImage, points);
 #endif
 
@@ -287,13 +289,29 @@ namespace sc
 		{
 			using namespace cv;
 
-			Mat blurred;
-			const double sigma = 5, amount = 2.5;
+			// Pixel Normalize
+			for (uint16_t h = 0; mask.cols > h; h++) {
+				for (uint16_t w = 0; mask.rows > w; w++) {
+					uchar* pixel = mask.ptr() + (h * w);
 
-			GaussianBlur(mask, blurred, Size(), sigma, sigma);
-			mask = mask * (1 + amount) + blurred * (-amount);
+					if (*pixel >= 1) {
+						*pixel = 255;
+					}
+					else
+					{
+						*pixel = 0;
+					};
+				}
+			}
+
+			// Mask blur
+			//Mat blurred;
+			//const double sigma = 5, amount = 2.5;
+			//
+			//GaussianBlur(mask, blurred, Size(), sigma, sigma);
+			//mask = mask * (1 + amount) + blurred * (-amount);
 #ifdef CV_DEBUG
-			ShowImage("Mask", sharpened);
+			ShowImage("Mask", mask);
 #endif // CV_DEBUG
 		}
 

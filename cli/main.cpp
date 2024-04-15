@@ -204,6 +204,11 @@ void process(ProgramOptions& options)
 		1, 2
 	);
 
+	config.progress = [&items](unsigned count)
+	{
+		print(count << " \\ " << items.size());
+	};
+
 	AtlasGenerator::Generator generator(config);
 	uint8_t bin_count = 0;
 	try

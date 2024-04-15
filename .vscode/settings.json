@@ -1,6 +1,7 @@
 {
     "cmake.configureSettings": {
-        "SC_BUILD_ATLAS_GENERATOR_CLI": true
+        "SC_BUILD_ATLAS_GENERATOR_CLI": true,
+        "BUILD_SHARED_LIBS": true
     },
     "cmake.automaticReconfigure": false,
 }

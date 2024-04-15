@@ -8,6 +8,11 @@
 #include "Vertex.h"
 #include "AtlasGenerator/Config.h"
 
+#ifdef CV_DEBUG
+void ShowContour(cv::Mat& src, std::vector<cv::Point>& points);
+void ShowImage(std::string name, cv::Mat& image);
+#endif
+
 namespace sc
 {
 	namespace AtlasGenerator
