@@ -149,11 +149,11 @@ namespace sc
 			return result;
 		}
 
-		Rect<int32_t> Item::bound()
+		Rect<int32_t> Item::bound() const
 		{
 			Rect<int32_t> result(INT_MAX, 0, 0, INT_MAX);
 
-			for (Vertex& vertex : vertices)
+			for (const Vertex& vertex : vertices)
 			{
 				if (result.left > vertex.xy.x)
 				{
@@ -179,7 +179,7 @@ namespace sc
 			return result;
 		}
 
-		void Item::get_sliced_area(Item::SlicedArea area, Rect<int32_t>& guide, Rect<int32_t>& xy, Rect<uint16_t>& uv, Transformation xy_transform)
+		void Item::get_sliced_area(Item::SlicedArea area, const Rect<int32_t>& guide, Rect<int32_t>& xy, Rect<uint16_t>& uv, const Transformation xy_transform) const
 		{
 			if (!is_rectangle()) return;
 

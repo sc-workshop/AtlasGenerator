@@ -35,7 +35,7 @@ namespace sc
 				Point<int32_t> translation;
 
 				template<typename T>
-				void transform_point(Point<T>& vertex)
+				void transform_point(Point<T>& vertex) const
 				{
 					T x = vertex.x;
 					T y = vertex.y;
@@ -101,18 +101,18 @@ namespace sc
 
 		public:
 			// XY coords bound
-			Rect<int32_t> bound();
+			Rect<int32_t> bound() const;
 			void generate_image_polygon(const Config& config);
 			float perimeter() const;
 
 		public:
 			void get_sliced_area(
 				SlicedArea area,
-				Rect<int32_t>& guide,
+				const Rect<int32_t>& guide,
 				Rect<int32_t>& xy,
 				Rect<uint16_t>& uv,
-				Transformation xy_transform = Transformation()
-			);
+				const Transformation xy_transform = Transformation()
+			) const;
 
 		public:
 			bool operator ==(Item& other);
