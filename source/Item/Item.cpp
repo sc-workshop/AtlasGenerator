@@ -202,17 +202,17 @@ namespace sc
 				vertices[2].uv.u, vertices[2].uv.v
 			);
 
-			int16_t left_width_size = (int16_t)abs(guide.left - xy_rectangle.x);
+			int16_t left_width_size = (int16_t)abs(guide.right - xy_rectangle.x);
 			int16_t top_height_size = (int16_t)abs(guide.top - xy_rectangle.height);
 			int16_t bottom_height_size = (int16_t)abs(guide.bottom - xy_rectangle.y);
-			int16_t middle_width_size = (int16_t)abs(guide.right - xy_rectangle.x) - left_width_size;
+			int16_t middle_width_size = (int16_t)abs(guide.left - xy_rectangle.x) - left_width_size;
 			int16_t middle_height_size = (int16_t)abs(guide.top - (xy_rectangle.y + bottom_height_size));
-			int16_t right_width_size = (int16_t)abs(guide.right - xy_rectangle.width);
+			int16_t right_width_size = (int16_t)abs(guide.left - xy_rectangle.width);
 
 			switch (area)
 			{
 			case Item::SlicedArea::BottomLeft:
-				if (guide.left < xy_rectangle.x || guide.bottom < xy_rectangle.y) return;
+				if (guide.right < xy_rectangle.x || guide.bottom < xy_rectangle.y) return;
 
 				{
 					xy.x = xy_rectangle.x;
@@ -244,7 +244,7 @@ namespace sc
 			break;
 			case Item::SlicedArea::BottomRight:
 			{
-				xy.x = guide.right;
+				xy.x = guide.left;
 				xy.y = xy_rectangle.y;
 
 				xy.width = right_width_size;
@@ -286,7 +286,7 @@ namespace sc
 			break;
 			case Item::SlicedArea::MiddleRight:
 			{
-				xy.x = guide.right;
+				xy.x = guide.left;
 				xy.y = xy_rectangle.y + bottom_height_size;
 
 				xy.width = right_width_size;
@@ -328,7 +328,7 @@ namespace sc
 			break;
 			case Item::SlicedArea::TopRight:
 			{
-				xy.x = guide.right;
+				xy.x = guide.left;
 				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
 
 				xy.width = right_width_size;
