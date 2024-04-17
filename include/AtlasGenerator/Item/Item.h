@@ -24,11 +24,15 @@ namespace sc
 		class Item
 		{
 		public:
-			struct Transformation
+			class Transformation
 			{
+			public:
+				Transformation(double rotation = 0.0, Point<int32_t> translation = Point<int32_t>(0, 0));
+
+			public:
 				// Rotation in radians
-				double rotation = 0.0;
-				Point<int32_t> translation = Point<int32_t>(0, 0);
+				double rotation;
+				Point<int32_t> translation;
 
 				template<typename T>
 				void transform_point(Point<T>& vertex)
@@ -41,17 +45,36 @@ namespace sc
 				}
 			};
 		public:
-			enum class Status
+			enum class Status : uint8_t
 			{
 				Unset = 0,
 				Valid,
 				InvalidPolygon
 			};
 
+			enum class Type : uint8_t
+			{
+				Sprite,
+				Sliced
+			};
+
+			enum class SlicedArea : uint8_t
+			{
+				BottomLeft = 1,
+				BottomMiddle,
+				BottomRight,
+				MiddleLeft,
+				Center,
+				MiddleRight,
+				TopLeft,
+				TopMiddle,
+				TopRight
+			};
+
 		public:
-			Item(cv::Mat& image);
-			Item(std::filesystem::path path);
-			Item(cv::Scalar color);
+			Item(cv::Mat& image, Type type = Type::Sprite);
+			Item(std::filesystem::path path, Type type = Type::Sprite);
+			Item(cv::Scalar color, Type type = Type::Sprite);
 
 			virtual ~Item() = default;
 
@@ -83,6 +106,15 @@ namespace sc
 			float perimeter() const;
 
 		public:
+			void get_sliced_area(
+				SlicedArea area,
+				Rect<int32_t>& guide,
+				Rect<int32_t>& xy,
+				Rect<uint16_t>& uv,
+				Transformation xy_transform = Transformation()
+			);
+
+		public:
 			bool operator ==(Item& other);
 
 		private:
@@ -97,6 +129,7 @@ namespace sc
 			void extrude_points(cv::Mat& src, Container<cv::Point>& points);
 
 		protected:
+			Type m_type;
 			Status m_status = Status::Unset;
 			bool m_preprocessed = false;
 			cv::Mat m_image;

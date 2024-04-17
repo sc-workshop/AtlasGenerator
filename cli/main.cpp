@@ -152,7 +152,7 @@ void process(ProgramOptions& options)
 	fs::path atlas_data_output = options.output / "atlas.txt";
 	std::ofstream atlas_data(atlas_data_output);
 
-	std::vector<Ref<AtlasGenerator::Item>> items;
+	std::vector<AtlasGenerator::Item> items;
 
 	std::map<size_t, Rect<int32_t>> guides;
 	std::map<size_t, AtlasGenerator::Item::Transformation> guide_transform;
@@ -165,9 +165,7 @@ void process(ProgramOptions& options)
 
 		if (!fs::exists(guide_path))
 		{
-			items.push_back(
-				CreateRef<AtlasGenerator::Item>(path)
-			);
+			items.emplace_back(path);
 		}
 		else
 		{
@@ -189,12 +187,16 @@ void process(ProgramOptions& options)
 				(int32_t)ceil(guide[1]), (int32_t)ceil(guide[2])
 				);
 
-			auto item = CreateRef<AtlasGenerator::SlicedItem>(path);
-			guide_transform[items.size()] = { 0.0, Point<int32_t>(-(item->width() / 2), -(item->height() / 2)) };
+			AtlasGenerator::Item item(path, AtlasGenerator::Item::Type::Sliced);
 
-			items.push_back(
-				item
+			AtlasGenerator::Item::Transformation transform(
+				0.0,
+				Point<int32_t>(-(item.width() / 2), -(item.height() / 2))
 			);
+
+			guide_transform[items.size()] = transform;
+
+			items.push_back(item);
 		}
 	}
 
@@ -245,7 +247,7 @@ void process(ProgramOptions& options)
 
 	for (size_t i = 0; items.size() > i; i++)
 	{
-		AtlasGenerator::Item& item = *items[i];
+		AtlasGenerator::Item& item = items[i];
 		fs::path& path = options.files[i];
 
 		atlas_data << "path=" << path << std::endl;
@@ -292,7 +294,7 @@ void process(ProgramOptions& options)
 		}
 
 		for (size_t i = 0; items.size() > i; i++) {
-			AtlasGenerator::Item& item = *items[i];
+			AtlasGenerator::Item& item = items[i];
 			std::vector<cv::Point> atlas_contour;
 			std::vector<cv::Point> item_contour;
 
@@ -322,15 +324,14 @@ void process(ProgramOptions& options)
 
 				if (item.is_sliced())
 				{
-					AtlasGenerator::SlicedItem& sliced_item = *(AtlasGenerator::SlicedItem*)&item;
 					cv::Mat sliced_image(item.image().size(), CV_8UC4, cv::Scalar(0));
-					for (uint8_t area_index = (uint8_t)AtlasGenerator::SlicedItem::Area::BottomLeft; (uint8_t)AtlasGenerator::SlicedItem::Area::TopRight >= area_index; area_index++)
+					for (uint8_t area_index = (uint8_t)AtlasGenerator::Item::SlicedArea::BottomLeft; (uint8_t)AtlasGenerator::Item::SlicedArea::TopRight >= area_index; area_index++)
 					{
 						Rect<int32_t> xy;
 						Rect<uint16_t> uv;
 
-						sliced_item.get_slice(
-							(AtlasGenerator::SlicedItem::Area)area_index,
+						item.get_sliced_area(
+							(AtlasGenerator::Item::SlicedArea)area_index,
 							guides[i],
 							xy, uv,
 							guide_transform[i]

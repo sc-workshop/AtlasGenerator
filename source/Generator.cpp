@@ -10,11 +10,11 @@ namespace sc
 		{
 		}
 
-		uint8_t Generator::generate(Container<Ref<Item>>& items)
+		uint8_t Generator::generate(Container<Item>& items)
 		{
 			for (size_t i = 0; items.size() > i; i++)
 			{
-				Item& item = *items[i];
+				Item& item = items[i];
 
 				if (item.status() == Item::Status::Unset)
 				{
@@ -42,7 +42,7 @@ namespace sc
 						// Searching for duplicates
 						for (size_t j = 0; i > j; j++)
 						{
-							if (*items[j] == item)
+							if (items[j] == item)
 							{
 								item_index = j;
 								break;
