@@ -13,7 +13,6 @@ FetchContent_MakeAvailable(SupercellCore)
 
 # Polygon Packing
 set(RP_ENABLE_DOWNLOADING ON)
-set(LIBNEST2D_HEADER_ONLY ON)
 FetchContent_Declare(
     libnest2d
     GIT_REPOSITORY https://github.com/tamasmeszaros/libnest2d.git
