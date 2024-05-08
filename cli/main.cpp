@@ -199,11 +199,11 @@ void process(ProgramOptions& options)
 			items.push_back(item);
 		}
 	}
-
+	uint8_t scale_factor = 2;
 	AtlasGenerator::Config config(
 		AtlasGenerator::Config::TextureType::RGBA,
 		4096, 4096,
-		1, 2
+		scale_factor, 2
 	);
 
 	config.progress = [&items](unsigned count)
@@ -258,9 +258,9 @@ void process(ProgramOptions& options)
 		{
 			item.transform.transform_point(vertex.uv);
 			atlas_data << "[";
-			atlas_data << std::to_string(vertex.uv.x);
+			atlas_data << std::to_string(vertex.uv.x / scale_factor);
 			atlas_data << ",";
-			atlas_data << std::to_string(vertex.uv.y);
+			atlas_data << std::to_string(vertex.uv.y / scale_factor);
 			atlas_data << "]";
 		}
 

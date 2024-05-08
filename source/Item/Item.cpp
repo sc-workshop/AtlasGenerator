@@ -108,8 +108,8 @@ namespace sc
 
 				int x = point.x + bound.x;
 				int y = point.y + bound.y;
-				uint16_t u = point.x;
-				uint16_t v = point.y;
+				uint16_t u = (uint16_t)ceil(point.x / config.scale());
+				uint16_t v = (uint16_t)ceil(point.y / config.scale());
 
 				vertices.emplace_back(
 					(uint16_t)x, (uint16_t)y,
@@ -205,7 +205,7 @@ namespace sc
 			int16_t left_width_size = (int16_t)abs(guide.right - xy_rectangle.x);
 			int16_t top_height_size = (int16_t)abs(guide.top - xy_rectangle.height);
 			int16_t bottom_height_size = (int16_t)abs(guide.bottom - xy_rectangle.y);
-			int16_t middle_width_size = (int16_t)abs(guide.left - xy_rectangle.x) - left_width_size;
+			int16_t middle_width_size = (int16_t)abs((guide.left - xy_rectangle.x) - left_width_size);
 			int16_t middle_height_size = (int16_t)abs(guide.top - (xy_rectangle.y + bottom_height_size));
 			int16_t right_width_size = (int16_t)abs(guide.left - xy_rectangle.width);
 
@@ -479,12 +479,6 @@ namespace sc
 				}
 			}
 
-			// Mask blur
-			//Mat blurred;
-			//const double sigma = 5, amount = 2.5;
-			//
-			//GaussianBlur(mask, blurred, Size(), sigma, sigma);
-			//mask = mask * (1 + amount) + blurred * (-amount);
 #ifdef CV_DEBUG
 			ShowImage("Mask", mask);
 #endif // CV_DEBUG

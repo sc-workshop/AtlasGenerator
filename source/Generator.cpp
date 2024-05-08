@@ -224,15 +224,6 @@ namespace sc
 
 					cv::resize(atlas, atlas, atlas_size);
 				}
-
-				for (Item* item : m_items)
-				{
-					for (Vertex& vertex : item->vertices)
-					{
-						vertex.uv.x = (uint16_t)ceil(vertex.uv.x / m_config.scale());
-						vertex.uv.y = (uint16_t)ceil(vertex.uv.y / m_config.scale());
-					}
-				}
 			}
 
 			return true;
