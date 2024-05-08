@@ -1,4 +1,5 @@
 #include "AtlasGenerator/Generator.h"
+#include "AtlasGenerator/limits.h"
 
 #include <libnest2d/libnest2d.hpp>
 
@@ -70,15 +71,11 @@ namespace sc
 
 			for (size_t i = 0; items.size() > i; i++)
 			{
-				//Item& item = items[i];
 				size_t item_index = m_duplicate_indices[i];
 
 				if (item_index != SIZE_MAX)
 				{
-					//Item& other = *items[item_index];
 					items[i] = items[item_index];
-					//item.texture_index = other.texture_index;
-					//item.vertices = other.vertices;
 				}
 			}
 
@@ -212,6 +209,30 @@ namespace sc
 					static_cast<uint16_t>(libnest2d::getX(box.minCorner()) - m_config.extrude() * 2),
 					static_cast<uint16_t>(libnest2d::getY(box.minCorner()) - m_config.extrude() * 2)
 				);
+			}
+
+			if (m_config.scale() != 1.0f)
+			{
+				for (cv::Mat& atlas : m_atlases)
+				{
+					cv::Size atlas_size(
+						(int)ceil(atlas.cols / m_config.scale()),
+						(int)ceil(atlas.rows / m_config.scale()));
+
+					atlas_size.width = std::clamp(atlas_size.width, 1, (int)MaxTextureDimension);
+					atlas_size.height = std::clamp(atlas_size.height, 1, (int)MaxTextureDimension);
+
+					cv::resize(atlas, atlas, atlas_size);
+				}
+
+				for (Item* item : m_items)
+				{
+					for (Vertex& vertex : item->vertices)
+					{
+						vertex.uv.x = (uint16_t)ceil(vertex.uv.x / m_config.scale());
+						vertex.uv.y = (uint16_t)ceil(vertex.uv.y / m_config.scale());
+					}
+				}
 			}
 
 			return true;

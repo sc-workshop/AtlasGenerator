@@ -108,8 +108,8 @@ namespace sc
 
 				int x = point.x + bound.x;
 				int y = point.y + bound.y;
-				uint16_t u = (uint16_t)ceil(point.x / config.scale());
-				uint16_t v = (uint16_t)ceil(point.y / config.scale());
+				uint16_t u = point.x;
+				uint16_t v = point.y;
 
 				vertices.emplace_back(
 					(uint16_t)x, (uint16_t)y,
