@@ -211,21 +211,6 @@ namespace sc
 				);
 			}
 
-			if (m_config.scale() != 1.0f)
-			{
-				for (cv::Mat& atlas : m_atlases)
-				{
-					cv::Size atlas_size(
-						(int)ceil(atlas.cols / m_config.scale()),
-						(int)ceil(atlas.rows / m_config.scale()));
-
-					atlas_size.width = std::clamp(atlas_size.width, 1, (int)MaxTextureDimension);
-					atlas_size.height = std::clamp(atlas_size.height, 1, (int)MaxTextureDimension);
-
-					cv::resize(atlas, atlas, atlas_size);
-				}
-			}
-
 			return true;
 		}
 

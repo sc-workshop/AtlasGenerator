@@ -47,7 +47,11 @@ namespace sc
 		{
 			using namespace cv;
 
-			image_preprocess();
+			float scale_factor = is_sliced() ? 1.0f : config.scale();
+
+			Size sprite_orig_size(m_image.cols, m_image.rows);
+
+			image_preprocess(config);
 
 			Mat alpha_mask;
 			switch (m_image.channels())
@@ -63,28 +67,33 @@ namespace sc
 				break;
 			}
 
-			cv::Rect bound = boundingRect(alpha_mask);
-			if (bound.width <= 0) bound.width = 1;
-			if (bound.height <= 0) bound.height = 1;
+			cv::Rect bound_offset = boundingRect(alpha_mask);
+			if (bound_offset.width <= 0) bound_offset.width = 1;
+			if (bound_offset.height <= 0) bound_offset.height = 1;
 
 			// Image croping by alpha
-			m_image = m_image(bound);
-			alpha_mask = alpha_mask(bound);
+			m_image = m_image(bound_offset);
+			alpha_mask = alpha_mask(bound_offset);
 
-			Size dstSize = alpha_mask.size();
+			Size bound_size = alpha_mask.size();
 
 			if (is_rectangle()) {
 				vertices.resize(4);
 
-				vertices[0].uv = { 0,						0 };
-				vertices[1].uv = { 0,						(uint16_t)dstSize.height };
-				vertices[2].uv = { (uint16_t)dstSize.width, (uint16_t)dstSize.height };
-				vertices[3].uv = { (uint16_t)dstSize.width, 0 };
+				sc::Point<float> xy_offset(
+					bound_offset.x * scale_factor,
+					bound_offset.y * scale_factor
+				);
 
-				vertices[0].xy = { (uint16_t)bound.x,					  (uint16_t)bound.y };
-				vertices[1].xy = { (uint16_t)bound.x,					  (uint16_t)(bound.y + dstSize.height) };
-				vertices[2].xy = { (uint16_t)(bound.x + dstSize.width), (uint16_t)(bound.y + dstSize.height) };
-				vertices[3].xy = { (uint16_t)(bound.x + dstSize.width), (uint16_t)bound.y };
+				vertices[0].uv = { 0,						0 };
+				vertices[1].uv = { 0,						(uint16_t)bound_size.height };
+				vertices[2].uv = { (uint16_t)bound_size.width, (uint16_t)bound_size.height };
+				vertices[3].uv = { (uint16_t)bound_size.width, 0 };
+
+				vertices[0].xy = { (uint16_t)xy_offset.x,					  (uint16_t)xy_offset.y };
+				vertices[1].xy = { (uint16_t)xy_offset.x,					  (uint16_t)(xy_offset.y + sprite_orig_size.height) };
+				vertices[2].xy = { (uint16_t)(xy_offset.x + sprite_orig_size.width), (uint16_t)(xy_offset.y + sprite_orig_size.height) };
+				vertices[3].xy = { (uint16_t)(xy_offset.x + sprite_orig_size.width), (uint16_t)xy_offset.y };
 
 				m_status = Status::Valid;
 				return;
@@ -106,10 +115,10 @@ namespace sc
 			{
 				const cv::Point& point = polygon[i];
 
-				int x = point.x + bound.x;
-				int y = point.y + bound.y;
-				uint16_t u = (uint16_t)ceil(point.x / config.scale());
-				uint16_t v = (uint16_t)ceil(point.y / config.scale());
+				int x = (uint16_t)ceil((point.x + bound_offset.x) * scale_factor);
+				int y = (uint16_t)ceil((point.y + bound_offset.y) * scale_factor);
+				uint16_t u = point.x;
+				uint16_t v = point.y;
 
 				vertices.emplace_back(
 					(uint16_t)x, (uint16_t)y,
@@ -378,9 +387,19 @@ namespace sc
 			return true;
 		}
 
-		void Item::image_preprocess()
+		void Item::image_preprocess(const Config& config)
 		{
 			if (m_preprocessed) return;
+
+			if (config.scale() != 1.0f && !is_sliced())
+			{
+				cv::Size sprite_size(
+					(int)ceil(m_image.cols / config.scale()),
+					(int)ceil(m_image.rows / config.scale())
+				);
+
+				cv::resize(m_image, m_image, sprite_size);
+			}
 
 			int channels = m_image.channels();
 

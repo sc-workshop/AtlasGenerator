@@ -118,7 +118,7 @@ namespace sc
 			bool operator ==(Item& other);
 
 		private:
-			void image_preprocess();
+			void image_preprocess(const Config& config);
 			void alpha_preprocess();
 
 			void get_image_contour(cv::Mat& image, Container<cv::Point>& result);
