@@ -361,6 +361,8 @@ namespace sc
 		{
 			using namespace cv;
 
+			if (std::addressof(image()) == std::addressof(other.image())) return true;
+
 			if (width() != other.width() || height() != other.height()) return false;
 			int imageChannelsCount = other.image().channels();
 			int otherChannelsCount = other.image().channels();
@@ -474,10 +476,10 @@ namespace sc
 #endif
 
 				std::move(points.begin(), points.end(), std::back_inserter(result));
-			}
+		}
 
 			snap_to_border(image, result);
-		}
+	}
 
 		void Item::mask_preprocess(cv::Mat& mask)
 		{
@@ -501,7 +503,7 @@ namespace sc
 #ifdef CV_DEBUG
 			ShowImage("Mask", mask);
 #endif // CV_DEBUG
-		}
+			}
 
 		void Item::snap_to_border(cv::Mat& src, Container<cv::Point>& points)
 		{
@@ -571,5 +573,5 @@ namespace sc
 				}
 			}
 		}
-	}
+		}
 }

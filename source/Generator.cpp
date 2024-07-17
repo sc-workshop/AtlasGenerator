@@ -13,47 +13,51 @@ namespace sc
 
 		uint8_t Generator::generate(Container<Item>& items)
 		{
+			Container<size_t> inverse_duplicate_indices;
 			for (size_t i = 0; items.size() > i; i++)
 			{
 				Item& item = items[i];
 
-				if (item.status() == Item::Status::Unset)
+				if (item.image().channels() != 4)
 				{
-					item.generate_image_polygon(m_config);
-					if (item.vertices.empty())
-					{
-						throw PackagingException(PackagingException::Reason::InvalidPolygon, i);
-					}
+					throw PackagingException(PackagingException::Reason::UnsupportedImage, i);
 				}
 
-				if (item.status() == Item::Status::Valid)
+				// Searching for duplicates
 				{
-					if (item.width() > m_config.width() || item.height() > m_config.height())
+					size_t item_index = SIZE_MAX;
+					for (size_t j = 0; i > j; j++)
 					{
-						throw PackagingException(PackagingException::Reason::TooBigImage, i);
-					}
-
-					if (item.image().channels() != 4)
-					{
-						throw PackagingException(PackagingException::Reason::UnsupportedImage, i);
-					}
-
-					{
-						size_t item_index = SIZE_MAX;
-						// Searching for duplicates
-						for (size_t j = 0; i > j; j++)
+						if (items[j] == item)
 						{
-							if (items[j] == item)
-							{
-								item_index = j;
-								break;
-							}
+							item_index = j;
+							break;
 						}
-						m_duplicate_indices.push_back(item_index);
-						if (item_index != SIZE_MAX) continue;
+					}
+					m_duplicate_indices.push_back(item_index);
+					if (item_index != SIZE_MAX) continue;
+				}
+
+				inverse_duplicate_indices.push_back(i);
+				m_items.push_back(&item);
+			}
+
+			for (size_t i = 0; m_items.size() > i; i++)
+			{
+				Item* item = m_items[i];
+
+				if (item->status() == Item::Status::Unset)
+				{
+					item->generate_image_polygon(m_config);
+					if (item->vertices.empty())
+					{
+						throw PackagingException(PackagingException::Reason::InvalidPolygon, inverse_duplicate_indices[i]);
 					}
 
-					m_items.push_back(&item);
+					if (item->width() > m_config.width() || item->height() > m_config.height())
+					{
+						throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
+					}
 				}
 			}
 
