@@ -5,8 +5,8 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 # Basic Types & Defintions
 FetchContent_Declare(
     SupercellCore
-    GIT_REPOSITORY https://github.com/sc-workshop/SC-Core
-    GIT_TAG main
+    GIT_REPOSITORY https://github.com/sc-workshop/Workshop-Core.git
+    GIT_TAG 2.0
 )
 
 FetchContent_MakeAvailable(SupercellCore)
@@ -15,8 +15,8 @@ FetchContent_MakeAvailable(SupercellCore)
 set(RP_ENABLE_DOWNLOADING ON)
 FetchContent_Declare(
     libnest2d
-    GIT_REPOSITORY https://github.com/tamasmeszaros/libnest2d.git
-    GIT_TAG master
+    GIT_REPOSITORY https://github.com/Daniil-SV/libnest2d.git
+    GIT_TAG dev
 )
 FetchContent_MakeAvailable(libnest2d)
 
@@ -48,6 +48,7 @@ set(BUILD_ANDROID_EXAMPLES OFF)
 set(BUILD_DOCS OFF)
 set(BUILD_PACKAGE OFF)
 set(BUILD_JAVA OFF)
+set(BUILD_WITH_STATIC_CRT OFF)
 
 if (NOT DEFINED BUILD_LIST OR NOT BUILD_LIST)
     set(BUILD_LIST "imgproc,imgcodecs")

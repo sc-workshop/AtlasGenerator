@@ -1,4 +1,4 @@
-#include "AtlasGenerator/Generator.h"
+#include "atlas_generator/Generator.h"
 
 #include <iostream>
 #include <fstream>
@@ -6,12 +6,11 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include "AtlasGenerator/PackagingException.h"
+#include "atlas_generator/PackagingException.h"
 using namespace sc;
+using namespace AtlasGenerator;
 
 #define print(message) std::cout << message << std::endl
-
-SC_CONSTRUCT_CHILD_EXCEPTION(GeneralRuntimeException, FolderAlreadyExistException, "Output folder already exists");
 
 void print_help(char* executable)
 {
@@ -57,7 +56,7 @@ public:
 			// Paths
 			if (!fs::exists(argument))
 			{
-				print("Unknown or wrong agument" << argument);
+				print("Unknown or wrong agument " << argument);
 			}
 
 			if (fs::is_directory(argument))
@@ -143,7 +142,7 @@ void process(ProgramOptions& options)
 		}
 		else
 		{
-			throw FolderAlreadyExistException();
+			throw Exception("Folder already exist");
 		}
 	}
 
@@ -153,8 +152,9 @@ void process(ProgramOptions& options)
 	std::ofstream atlas_data(atlas_data_output);
 
 	std::vector<AtlasGenerator::Item> items;
+	items.reserve(options.files.size());
 
-	std::map<size_t, Rect<int32_t>> guides;
+	std::map<size_t, Rect> guides;
 	std::map<size_t, AtlasGenerator::Item::Transformation> guide_transform;
 
 	for (fs::path& path : options.files)
@@ -182,7 +182,7 @@ void process(ProgramOptions& options)
 
 			if (guide.size() != 4) continue;
 
-			guides[items.size()] = Rect<int32_t>(
+			guides[items.size()] = Rect(
 				(int32_t)ceil(guide[0]), (int32_t)ceil(guide[3]),
 				(int32_t)ceil(guide[1]), (int32_t)ceil(guide[2])
 				);
@@ -191,7 +191,7 @@ void process(ProgramOptions& options)
 
 			AtlasGenerator::Item::Transformation transform(
 				0.0,
-				Point<int32_t>(-(item.width() / 2), -(item.height() / 2))
+				Point(-(item.width() / 2), -(item.height() / 2))
 			);
 
 			guide_transform[items.size()] = transform;
@@ -199,7 +199,7 @@ void process(ProgramOptions& options)
 			items.push_back(item);
 		}
 	}
-	uint8_t scale_factor = 2;
+	uint8_t scale_factor = 1;
 	AtlasGenerator::Config config(
 		AtlasGenerator::Config::TextureType::RGBA,
 		4096, 4096,
@@ -212,7 +212,7 @@ void process(ProgramOptions& options)
 	};
 
 	AtlasGenerator::Generator generator(config);
-	uint8_t bin_count = 0;
+	size_t bin_count = 0;
 	try
 	{
 		bin_count = generator.generate(items);
@@ -228,11 +228,11 @@ void process(ProgramOptions& options)
 		{
 			std::cout << "Failed to package item \"" << options.files[item_index] << "\"" << std::endl;
 		}
-		std::cout << exception.message() << std::endl;
+		std::cout << exception.what() << std::endl;
 	}
-	catch (const sc::GeneralRuntimeException& exception)
+	catch (const std::exception& exception)
 	{
-		std::cout << exception.message() << std::endl;
+		std::cout << exception.what() << std::endl;
 	}
 
 	for (uint8_t i = 0; bin_count > i; i++)
@@ -327,8 +327,8 @@ void process(ProgramOptions& options)
 					cv::Mat sliced_image(item.image().size(), CV_8UC4, cv::Scalar(0));
 					for (uint8_t area_index = (uint8_t)AtlasGenerator::Item::SlicedArea::BottomLeft; (uint8_t)AtlasGenerator::Item::SlicedArea::TopRight >= area_index; area_index++)
 					{
-						Rect<int32_t> xy;
-						Rect<uint16_t> uv;
+						Rect xy;
+						RectUV uv;
 
 						item.get_sliced_area(
 							(AtlasGenerator::Item::SlicedArea)area_index,
@@ -409,9 +409,9 @@ int main(int argc, char* argv[])
 	{
 		process(options);
 	}
-	catch (const GeneralRuntimeException& exception)
+	catch (const std::exception& exception)
 	{
-		print(exception.message());
+		print(exception.what());
 		return 1;
 	}
 

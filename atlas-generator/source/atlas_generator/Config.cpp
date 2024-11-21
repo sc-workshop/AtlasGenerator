@@ -1,6 +1,5 @@
-#include "AtlasGenerator/Config.h"
-
-#include "AtlasGenerator/limits.h"
+#include "Config.h"
+#include "limits.h"
 
 namespace sc
 {

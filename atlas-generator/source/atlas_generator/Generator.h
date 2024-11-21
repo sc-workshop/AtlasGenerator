@@ -9,7 +9,6 @@
 #include "Config.h"
 #include "Item/Item.h"
 #include "PackagingException.h"
-#include "exception/GeneralRuntimeException.h"
 
 namespace sc {
 	namespace AtlasGenerator
@@ -23,7 +22,7 @@ namespace sc {
 			virtual ~Generator() = default;
 
 		public:
-			uint8_t generate(Container<Item>& items);
+			size_t generate(Container<Item>& items);
 
 			cv::Mat& get_atlas(uint8_t atlas);
 

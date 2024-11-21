@@ -13,8 +13,8 @@ if (${SC_BUILD_ATLAS_GENERATOR_CLI})
         highgui
     )
     
-    include(cmake/AtlasGeneratorCLI.cmake)
-	
+    add_subdirectory(atlas-generator)
+    add_subdirectory(atlas-generator-cli)
 else()
-	include(cmake/AtlasGenerator.cmake)
+    add_subdirectory(atlas-generator)
 endif()

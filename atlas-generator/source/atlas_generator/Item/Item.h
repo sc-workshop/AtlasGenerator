@@ -6,7 +6,9 @@
 #include <filesystem>
 
 #include "Vertex.h"
-#include "AtlasGenerator/Config.h"
+#include "atlas_generator/Config.h"
+#include "core/math/point.h"
+#include "core/math/rect.h"
 
 #ifdef CV_DEBUG
 void ShowContour(cv::Mat& src, std::vector<cv::Point>& points);
@@ -27,15 +29,15 @@ namespace sc
 			class Transformation
 			{
 			public:
-				Transformation(double rotation = 0.0, Point<int32_t> translation = Point<int32_t>(0, 0));
+				Transformation(double rotation = 0.0, Point translation = Point(0, 0));
 
 			public:
 				// Rotation in radians
 				double rotation;
-				Point<int32_t> translation;
+				Point translation;
 
 				template<typename T>
-				void transform_point(Point<T>& vertex) const
+				void transform_point(Point_t<T>& vertex) const
 				{
 					T x = vertex.x;
 					T y = vertex.y;
@@ -101,16 +103,16 @@ namespace sc
 
 		public:
 			// XY coords bound
-			Rect<int32_t> bound() const;
+			Rect bound() const;
 			void generate_image_polygon(const Config& config);
 			float perimeter() const;
 
 		public:
 			void get_sliced_area(
 				SlicedArea area,
-				const Rect<int32_t>& guide,
-				Rect<int32_t>& xy,
-				Rect<uint16_t>& uv,
+				const Rect& guide,
+				Rect& xy,
+				RectUV& uv,
 				const Transformation xy_transform = Transformation()
 			) const;
 

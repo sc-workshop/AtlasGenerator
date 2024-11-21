@@ -1,5 +1,5 @@
-#include "AtlasGenerator/Generator.h"
-#include "AtlasGenerator/limits.h"
+#include "Generator.h"
+#include "limits.h"
 
 #include <libnest2d/libnest2d.hpp>
 
@@ -11,7 +11,7 @@ namespace sc
 		{
 		}
 
-		uint8_t Generator::generate(Container<Item>& items)
+		size_t Generator::generate(Container<Item>& items)
 		{
 			Container<size_t> inverse_duplicate_indices;
 			for (size_t i = 0; items.size() > i; i++)
@@ -61,13 +61,6 @@ namespace sc
 				}
 			}
 
-			// Sorting by perimeter
-			std::stable_sort(m_items.begin(), m_items.end(),
-				[](Item* a, Item* b) {
-					return (*a).perimeter() > (*b).perimeter();
-				}
-			);
-
 			if (!pack_items())
 			{
 				throw PackagingException(PackagingException::Reason::Unknown);
@@ -98,8 +91,9 @@ namespace sc
 		{
 			// Vector with polygons for libnest2d
 			std::vector<libnest2d::Item> packer_items;
+			packer_items.reserve(m_items.size());
 
-			for (Item* item : m_items)
+			for (const Item* item : m_items)
 			{
 				libnest2d::Item& packer_item = packer_items.emplace_back(
 					std::vector<ClipperLib::IntPoint>(item->vertices.size() + 1)
@@ -115,7 +109,10 @@ namespace sc
 				}
 			}
 
-			libnest2d::NestConfig<libnest2d::BottomLeftPlacer, libnest2d::DJDHeuristic> cfg;
+			libnest2d::NestConfig<libnest2d::NfpPlacer, libnest2d::FirstFitSelection> cfg;
+			cfg.placer_config.alignment = libnest2d::NestConfig<>::Placement::Alignment::DONT_ALIGN;
+			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
+
 			libnest2d::NestControl control;
 			control.progressfn = m_config.progress;
 
@@ -124,7 +121,7 @@ namespace sc
 				libnest2d::Box(
 					m_config.width(), m_config.height(),
 					{ (int)ceil(m_config.width() / 2), (int)ceil(m_config.height() / 2) }),
-				m_config.extrude(), cfg, control
+				m_config.extrude() * 2, cfg, control
 			);
 
 			// Gathering texture size info

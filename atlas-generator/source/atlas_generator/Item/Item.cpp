@@ -1,4 +1,4 @@
-#include "AtlasGenerator/Item/Item.h"
+#include "atlas_generator/Item/Item.h"
 
 #define PercentOf(proc, num) (num * proc / 100)
 
@@ -6,7 +6,7 @@ namespace sc
 {
 	namespace AtlasGenerator
 	{
-		Item::Transformation::Transformation(double rotation, Point<int32_t> translation) : rotation(rotation), translation(translation)
+		Item::Transformation::Transformation(double rotation, Point translation) : rotation(rotation), translation(translation)
 		{
 		}
 
@@ -71,7 +71,7 @@ namespace sc
 			if (bound_offset.width <= 0) bound_offset.width = 1;
 			if (bound_offset.height <= 0) bound_offset.height = 1;
 
-			// Image croping by alpha
+			// Image cropping by alpha
 			m_image = m_image(bound_offset);
 			alpha_mask = alpha_mask(bound_offset);
 
@@ -80,7 +80,7 @@ namespace sc
 			if (is_rectangle()) {
 				vertices.resize(4);
 
-				sc::Point<float> xy_offset(
+				PointF xy_offset(
 					bound_offset.x * scale_factor,
 					bound_offset.y * scale_factor
 				);
@@ -158,9 +158,9 @@ namespace sc
 			return result;
 		}
 
-		Rect<int32_t> Item::bound() const
+		Rect Item::bound() const
 		{
-			Rect<int32_t> result(INT_MAX, 0, 0, INT_MAX);
+			Rect result(INT_MAX, 0, 0, INT_MAX);
 
 			for (const Vertex& vertex : vertices)
 			{
@@ -188,25 +188,25 @@ namespace sc
 			return result;
 		}
 
-		void Item::get_sliced_area(Item::SlicedArea area, const Rect<int32_t>& guide, Rect<int32_t>& xy, Rect<uint16_t>& uv, const Transformation xy_transform) const
+		void Item::get_sliced_area(Item::SlicedArea area, const Rect& guide, Rect& xy, RectUV& uv, const Transformation xy_transform) const
 		{
 			if (!is_rectangle()) return;
 
-			// TODO: Move to seperate builder class?
-			Rect<int32_t> xy_bound = bound();
+			// TODO: Move to separate builder class?
+			Rect xy_bound = bound();
 
-			Point<int32_t> xy_bottom_left_corner(xy_bound.left, xy_bound.bottom);
+			Point xy_bottom_left_corner(xy_bound.left, xy_bound.bottom);
 			xy_transform.transform_point(xy_bottom_left_corner);
 
-			Point<int32_t> xy_top_right_corner(xy_bound.right, xy_bound.top);
+			Point xy_top_right_corner(xy_bound.right, xy_bound.top);
 			xy_transform.transform_point(xy_top_right_corner);
 
-			Rect<int32_t> xy_rectangle(
+			Rect xy_rectangle(
 				xy_bottom_left_corner.x, xy_bottom_left_corner.y,
 				xy_top_right_corner.x, xy_top_right_corner.y
 			);
 
-			Rect<uint16_t> uv_rectangle(
+			RectUV uv_rectangle(
 				vertices[0].uv.u, vertices[0].uv.v,
 				vertices[2].uv.u, vertices[2].uv.v
 			);
