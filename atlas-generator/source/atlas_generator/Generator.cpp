@@ -3,7 +3,7 @@
 
 #include <libnest2d/libnest2d.hpp>
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{
@@ -14,6 +14,9 @@ namespace sc
 		size_t Generator::generate(Container<Item>& items)
 		{
 			Container<size_t> inverse_duplicate_indices;
+			inverse_duplicate_indices.reserve(items.size() / 2);
+			m_items.reserve(items.size());
+
 			for (size_t i = 0; items.size() > i; i++)
 			{
 				Item& item = items[i];

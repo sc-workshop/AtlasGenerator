@@ -2,11 +2,17 @@
 
 #include <stdint.h>
 
-constexpr size_t MinTextureDimension = 512;
-constexpr size_t MaxTextureDimension = 8096;
+namespace wk
+{
+	namespace AtlasGenerator
+	{
+		constexpr size_t MinTextureDimension = 512;
+		constexpr size_t MaxTextureDimension = 8096;
 
-constexpr uint8_t MinExtrude = 0;
-constexpr uint8_t MaxExtrude = 10;
+		constexpr uint8_t MinExtrude = 0;
+		constexpr uint8_t MaxExtrude = 10;
 
-constexpr float MinScaleFactor = 0.5f;
-constexpr float MaxScaleFactor = 10.0f;
+		constexpr float MinScaleFactor = 0.5f;
+		constexpr float MaxScaleFactor = 10.0f;
+	}
+}

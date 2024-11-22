@@ -1,12 +1,11 @@
 #pragma once
 
-// SC CORE
 #include "core/math/point.h"
 #include "core/math/rect.h"
 
 #include <stdint.h>
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{

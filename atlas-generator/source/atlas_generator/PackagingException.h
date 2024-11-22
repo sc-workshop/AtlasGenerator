@@ -2,7 +2,7 @@
 
 #include "core/exception/exception.h"
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{

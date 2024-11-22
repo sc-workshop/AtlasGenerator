@@ -1,7 +1,7 @@
 #include "Config.h"
 #include "limits.h"
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{
@@ -12,7 +12,7 @@ namespace sc
 			: m_texture_type(type),
 			m_max_width(std::clamp<uint16_t>(width, MinTextureDimension, MaxTextureDimension)),
 			m_max_height(std::clamp<uint16_t>(height, MinTextureDimension, MaxTextureDimension)),
-			m_scale_factor(std::clamp<uint8_t>(scale, MinScaleFactor, MaxScaleFactor)),
+			m_scale_factor(std::clamp<float>(scale, MinScaleFactor, MaxScaleFactor)),
 			m_extrude(std::clamp<uint8_t>(extrude, MinExtrude, MaxExtrude))
 		{}
 	}

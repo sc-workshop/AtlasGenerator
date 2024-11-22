@@ -10,7 +10,7 @@
 #include "Item/Item.h"
 #include "PackagingException.h"
 
-namespace sc {
+namespace wk {
 	namespace AtlasGenerator
 	{
 		class Generator

@@ -1,8 +1,13 @@
 #include "atlas_generator/Item/Item.h"
+#include "atlas_generator/polygon_math.hpp"
 
-#define PercentOf(proc, num) (num * proc / 100)
+#include "core/math/triangle.h"
 
-namespace sc
+#include <optional>
+#include <cmath>
+#include <clipper2/clipper.h>
+
+namespace wk
 {
 	namespace AtlasGenerator
 	{
@@ -10,7 +15,7 @@ namespace sc
 		{
 		}
 
-		Item::Item(cv::Mat& image, Type type) : m_image(image), m_type(type)
+		Item::Item(cv::Mat& image, Type type) : m_type(type), m_image(image)
 		{
 		}
 
@@ -28,7 +33,6 @@ namespace sc
 		uint16_t Item::width() const { return (uint16_t)m_image.cols; };
 		uint16_t Item::height() const { return (uint16_t)m_image.rows; };
 
-		// TODO: move to self written image class?
 		cv::Mat& Item::image() { return m_image; };
 
 		bool Item::is_rectangle() const
@@ -48,8 +52,7 @@ namespace sc
 			using namespace cv;
 
 			float scale_factor = is_sliced() ? 1.0f : config.scale();
-
-			Size sprite_orig_size(m_image.cols, m_image.rows);
+			Size full_size(m_image.cols, m_image.rows);
 
 			image_preprocess(config);
 
@@ -67,96 +70,201 @@ namespace sc
 				break;
 			}
 
-			cv::Rect bound_offset = boundingRect(alpha_mask);
-			if (bound_offset.width <= 0) bound_offset.width = 1;
-			if (bound_offset.height <= 0) bound_offset.height = 1;
+			cv::Rect crop_bound = boundingRect(alpha_mask);
+			if (crop_bound.width <= 0) crop_bound.width = 1;
+			if (crop_bound.height <= 0) crop_bound.height = 1;
 
 			// Image cropping by alpha
-			m_image = m_image(bound_offset);
-			alpha_mask = alpha_mask(bound_offset);
+			m_image = m_image(crop_bound);
+			alpha_mask = alpha_mask(crop_bound);
 
-			Size bound_size = alpha_mask.size();
+			Size current_size = alpha_mask.size();
+
+			PointF crop_offset(
+				crop_bound.x * scale_factor,
+				crop_bound.y * scale_factor
+			);
+
+			auto fallback_rectangle = [this, &crop_offset, &full_size, &current_size]
+				{
+					vertices.resize(4);
+
+					vertices[0].uv = { 0,										0 };
+					vertices[1].uv = { 0,										(uint16_t)current_size.height };
+					vertices[2].uv = { (uint16_t)current_size.width,					(uint16_t)current_size.height };
+					vertices[3].uv = { (uint16_t)current_size.width,					0 };
+
+					vertices[0].xy = { (uint16_t)crop_offset.x,						(uint16_t)crop_offset.y };
+					vertices[1].xy = { (uint16_t)crop_offset.x,						(uint16_t)(crop_offset.y + full_size.height) };
+					vertices[2].xy = { (uint16_t)(crop_offset.x + full_size.width),		(uint16_t)(crop_offset.y + full_size.height) };
+					vertices[3].xy = { (uint16_t)(crop_offset.x + full_size.width),		(uint16_t)crop_offset.y };
+
+					m_status = Status::Valid;
+				};
 
 			if (is_rectangle()) {
-				vertices.resize(4);
-
-				PointF xy_offset(
-					bound_offset.x * scale_factor,
-					bound_offset.y * scale_factor
-				);
-
-				vertices[0].uv = { 0,						0 };
-				vertices[1].uv = { 0,						(uint16_t)bound_size.height };
-				vertices[2].uv = { (uint16_t)bound_size.width, (uint16_t)bound_size.height };
-				vertices[3].uv = { (uint16_t)bound_size.width, 0 };
-
-				vertices[0].xy = { (uint16_t)xy_offset.x,					  (uint16_t)xy_offset.y };
-				vertices[1].xy = { (uint16_t)xy_offset.x,					  (uint16_t)(xy_offset.y + sprite_orig_size.height) };
-				vertices[2].xy = { (uint16_t)(xy_offset.x + sprite_orig_size.width), (uint16_t)(xy_offset.y + sprite_orig_size.height) };
-				vertices[3].xy = { (uint16_t)(xy_offset.x + sprite_orig_size.width), (uint16_t)xy_offset.y };
-
-				m_status = Status::Valid;
+				fallback_rectangle();
 				return;
 			}
 			else {
 				vertices.clear();
+				vertices.reserve(8);
 			}
 
-			mask_preprocess(alpha_mask);
+			normalize_mask(alpha_mask);
 
-			Container<cv::Point> contour;
-			get_image_contour(alpha_mask, contour);
-
-			Container<cv::Point> polygon;
-			extrude_points(alpha_mask, polygon);
-			convexHull(contour, polygon, true);
-
-			for (uint32_t i = 0; polygon.size() > i; i++)
+			Container<Point> polygon;
 			{
-				const cv::Point& point = polygon[i];
+				Container<cv::Point> contour;
+				get_image_contour(alpha_mask, contour);
 
-				int x = (uint16_t)ceil((point.x + bound_offset.x) * scale_factor);
-				int y = (uint16_t)ceil((point.y + bound_offset.y) * scale_factor);
-				uint16_t u = point.x;
-				uint16_t v = point.y;
+				// Contour area length
+				double area = arcLength(contour, true);
 
-				vertices.emplace_back(
-					(uint16_t)x, (uint16_t)y,
-					(uint16_t)u, (uint16_t)v
-				);
+				// Simplify contour just a bit for better results
+				approxPolyDP(contour, contour, 0.0009 * area, true);
+
+				// Getting convex hull as base polygon for calculations
+				Container<cv::Point> hull;
+				convexHull(contour, hull, true);
+
+				polygon.reserve(contour.size());
+				for (cv::Point& point : hull)
+				{
+					polygon.emplace_back(point.x, point.y);
+				}
+			}
+
+			Container<Triangle> triangles;
+			triangles.reserve(4);
+
+			Point centroid = { 
+				static_cast<int>(abs(static_cast<float>(current_size.width) / 2)),
+				static_cast<int>(abs(static_cast<float>(current_size.height) / 2))
+			};
+
+			float distance_threshold = (current_size.width + current_size.height) * 0.03f;
+
+			auto calculate_triangle = [&centroid, &current_size, &polygon, &triangles, &distance_threshold, this](Point input_point)
+				{
+					LineF ray(
+						PointF((float)input_point.x, (float)input_point.y),
+						PointF((float)centroid.x, (float)centroid.y)
+					);
+
+					//ShowContour(m_image, Container<Point>{ input_point, centroid });
+
+					PointF intersect;
+					size_t p1_idx{};
+					size_t p2_idx{};
+					bool has_intersect = line_intersect(polygon, ray, p1_idx, p2_idx, intersect);
+					if (!has_intersect) return;
+
+					const Point& p1 = polygon[p1_idx];
+					const Point& p2 = polygon[p2_idx];
+
+					//ShowContour(m_image, Container<Point>{ p1, p2 });
+
+					// Skip processing if distance between corner and intersect point is too smol
+					{
+						float distance = dist(input_point, intersect);// std::hypot(p1.x - p2.x, p1.y - p2.y);
+
+						if (distance_threshold > distance)
+						{
+							return;
+						}
+					}
+
+					float angle = line_angle(Line(p1, p2));
+
+					Line cutoff_bisector = Line(
+						input_point, 
+						Point((int)ceil(intersect.x), (int)ceil(intersect.y))
+					);
+
+					Triangle cutoff = build_triangle(
+						cutoff_bisector, angle, current_size.width + current_size.height
+					);
+
+					//ShowContour(m_image, Container<Point>{ cutoff.p1, cutoff.p2, cutoff.p3 });
+
+					triangles.push_back(cutoff);
+				};
+
+			Rect bounding_box = {0, 0, current_size.width, current_size.height };
+
+			calculate_triangle(Point(0,						0));
+			calculate_triangle(Point(current_size.width,	0));
+			calculate_triangle(Point(current_size.width,	current_size.height));
+			calculate_triangle(Point(0,						current_size.height));
+
+			if (triangles.empty())
+			{
+				fallback_rectangle();
+				return;
+			}
+
+			// Using all calculated triangles to cut polygon
+			{
+				using namespace Clipper2Lib;
+
+				PathsD clip, solution;
+
+				// Polygon
+				PathD subject;
+				subject.reserve(4);
+				subject.emplace_back(0,						0);
+				subject.emplace_back(current_size.width,	0);
+				subject.emplace_back(current_size.width,	current_size.height);
+				subject.emplace_back(0,						current_size.height);
+
+				// Triangles
+				clip.reserve(triangles.size());
+				for (Triangle& triangle : triangles)
+				{
+					PathD& path = clip.emplace_back();
+					path.reserve(3);
+
+					path.emplace_back((double)triangle.p1.x, (double)triangle.p1.y);
+					path.emplace_back((double)triangle.p2.x, (double)triangle.p2.y);
+					path.emplace_back((double)triangle.p3.x, (double)triangle.p3.y);
+				}
+
+				solution = Difference(PathsD({ subject }), clip, FillRule::NonZero);
+
+				if (solution.size() != 1)
+				{
+#ifdef _MSC_VER
+					assert(0);
+#endif
+					fallback_rectangle();
+					return;
+				}
+
+				PathD path = solution[0];
+				vertices.reserve(path.size());
+				for (auto& point : path)
+				{
+					int32_t x = ceil((point.x + crop_bound.x) * scale_factor);
+					int32_t y = ceil((point.y + crop_bound.y) * scale_factor);
+					uint16_t u = point.x;
+					uint16_t v = point.y;
+
+					vertices.emplace_back(x, y, u, v);
+				}
+
+				ShowContour(m_image, vertices);
 			}
 
 			if (vertices.empty())
 			{
-				m_status = Status::InvalidPolygon;
+				fallback_rectangle();
 			}
 			else
 			{
 				m_status = Status::Valid;
 			}
 		};
-
-		float Item::perimeter() const
-		{
-			float result = 0;
-			for (size_t i = 0; vertices.size() > i; i++)
-			{
-				if ((i % 2) == 0) continue;
-
-				bool isEndLine = i == vertices.size() - 1;
-
-				const Vertex& pointStart = vertices[i];
-				const Vertex& pointEnd = vertices[isEndLine ? 0 : i - 1];
-
-				float distance = std::sqrt(
-					powf((float)(pointStart.uv.y - pointStart.uv.x), 2.0f) +
-					powf((float)(pointEnd.uv.y - pointEnd.uv.x), 2.0f)
-				);
-				result += distance;
-			}
-
-			return result;
-		}
 
 		Rect Item::bound() const
 		{
@@ -425,13 +533,12 @@ namespace sc
 					{
 						Vec4b pixel = m_image.at<Vec4b>(h, w);
 
-						if (pixel[3] <= 2) {
-							m_image.at<cv::Vec4b>(h, w) = { 0, 0, 0, 0 };
-							continue;
-						};
+						//if (pixel[3] <= 2) {
+						//	m_image.at<cv::Vec4b>(h, w) = { 0, 0, 0, 0 };
+						//	continue;
+						//};
 
 						// Alpha premultiply
-
 						float alpha = static_cast<float>(pixel[3]) / 255.0f;
 						m_image.at<Vec4b>(h, w) = {
 							static_cast<uchar>(pixel[0] * alpha),
@@ -445,11 +552,11 @@ namespace sc
 					{
 						Vec2b& pixel = m_image.at<Vec2b>(h, w);
 
-						if (pixel[1] <= 2) {
-							pixel[0] = 0;
-							pixel[1] = 0;
-							continue;
-						};
+						//if (pixel[1] <= 2) {
+						//	pixel[0] = 0;
+						//	pixel[1] = 0;
+						//	continue;
+						//};
 
 						float alpha = static_cast<float>(pixel[3]) / 255.0f;
 						m_image.at<Vec2b>(h, w) = {
@@ -477,11 +584,9 @@ namespace sc
 
 				std::move(points.begin(), points.end(), std::back_inserter(result));
 		}
-
-			snap_to_border(image, result);
 	}
 
-		void Item::mask_preprocess(cv::Mat& mask)
+		void Item::normalize_mask(cv::Mat& mask)
 		{
 			using namespace cv;
 
@@ -505,73 +610,43 @@ namespace sc
 #endif // CV_DEBUG
 			}
 
-		void Item::snap_to_border(cv::Mat& src, Container<cv::Point>& points)
-		{
-			using namespace cv;
-
-			const double snapPercent = 7;
-
-			// Snaping variables
-			const int minW = (int)ceil(PercentOf(src.cols, snapPercent));
-			const int maxW = src.cols - minW;
-
-			const int minH = (int)ceil(PercentOf(src.rows, snapPercent));
-			const int maxH = src.rows - minH;
-
-			for (cv::Point& point : points) {
-				if (minW > point.x) {
-					point.x = 0;
-				}
-				else if (point.x >= maxW) {
-					point.x = src.cols;
-				}
-
-				if (minH > point.y) {
-					point.y = 0;
-				}
-				else if (point.y >= maxH) {
-					point.y = src.rows;
-				}
-			}
-		}
-
-		void Item::extrude_points(cv::Mat& src, Container<cv::Point>& points)
-		{
-			using namespace cv;
-
-			const uint16_t offsetX = (uint16_t)PercentOf(src.cols, 5);
-			const uint16_t offsetY = (uint16_t)PercentOf(src.rows, 5);
-
-			const int centerW = (int)ceil(src.cols / 2);
-			const int centerH = (int)ceil(src.rows / 2);
-
-			for (cv::Point& point : points) {
-				bool is_edge_point = (point.x == 0 || point.x == src.cols) && (point.y == 0 || point.y == src.rows);
-
-				if (!is_edge_point) {
-					int x = point.x - centerW;
-					int y = point.y - centerH;
-
-					if (x >= 0) {
-						x += offsetX;
-					}
-					else {
-						x -= offsetX;
-					}
-
-					if (y >= 0) {
-						y += offsetY;
-					}
-					else {
-						y -= offsetY;
-					}
-
-					point = {
-						std::clamp(x + centerW, 0, src.cols),
-						std::clamp(y + centerH, 0, src.rows),
-					};
-				}
-			}
-		}
-		}
+		//void Item::extrude_points(cv::Mat& src, Container<cv::Point>& points)
+		//{
+		//	using namespace cv;
+		//
+		//	const uint16_t offsetX = (uint16_t)PercentOf(src.cols, 5);
+		//	const uint16_t offsetY = (uint16_t)PercentOf(src.rows, 5);
+		//
+		//	const int centerW = (int)ceil(src.cols / 2);
+		//	const int centerH = (int)ceil(src.rows / 2);
+		//
+		//	for (cv::Point& point : points) {
+		//		bool is_edge_point = (point.x == 0 || point.x == src.cols) && (point.y == 0 || point.y == src.rows);
+		//
+		//		if (!is_edge_point) {
+		//			int x = point.x - centerW;
+		//			int y = point.y - centerH;
+		//
+		//			if (x >= 0) {
+		//				x += offsetX;
+		//			}
+		//			else {
+		//				x -= offsetX;
+		//			}
+		//
+		//			if (y >= 0) {
+		//				y += offsetY;
+		//			}
+		//			else {
+		//				y -= offsetY;
+		//			}
+		//
+		//			point = {
+		//				std::clamp(x + centerW, 0, src.cols),
+		//				std::clamp(y + centerH, 0, src.rows),
+		//			};
+		//		}
+		//	}
+		//}
+	}
 }

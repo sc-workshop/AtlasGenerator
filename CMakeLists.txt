@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(ScAtlasGenerator)
+project(WorkshopAtlasGenerator)
 
 option(SC_BUILD_ATLAS_GENERATOR_CLI "Build Atlas Generator CLI" OFF)
 

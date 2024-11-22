@@ -11,11 +11,13 @@
 #include "core/math/rect.h"
 
 #ifdef CV_DEBUG
-void ShowContour(cv::Mat& src, std::vector<cv::Point>& points);
+void ShowContour(cv::Mat& src, std::vector<wk::AtlasGenerator::Vertex>& points);
+void ShowContour(cv::Mat& src, std::vector<wk::Point>& points);
+void ShowContour(cv::Mat& src, std::vector<cv::Point> points);
 void ShowImage(std::string name, cv::Mat& image);
 #endif
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{
@@ -105,7 +107,6 @@ namespace sc
 			// XY coords bound
 			Rect bound() const;
 			void generate_image_polygon(const Config& config);
-			float perimeter() const;
 
 		public:
 			void get_sliced_area(
@@ -125,10 +126,7 @@ namespace sc
 
 			void get_image_contour(cv::Mat& image, Container<cv::Point>& result);
 
-			void mask_preprocess(cv::Mat& mask);
-
-			void snap_to_border(cv::Mat& src, Container<cv::Point>& points);
-			void extrude_points(cv::Mat& src, Container<cv::Point>& points);
+			void normalize_mask(cv::Mat& mask);
 
 		protected:
 			Type m_type;

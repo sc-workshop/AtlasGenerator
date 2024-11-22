@@ -7,7 +7,7 @@
 namespace fs = std::filesystem;
 
 #include "atlas_generator/PackagingException.h"
-using namespace sc;
+using namespace wk;
 using namespace AtlasGenerator;
 
 #define print(message) std::cout << message << std::endl
@@ -97,8 +97,18 @@ void ShowImage(std::string name, cv::Mat& image) {
 	cv::waitKey(0);
 }
 
-void ShowContour(cv::Mat& src, std::vector<cv::Point>& points) {
+void ShowContour(cv::Mat& src, std::vector<cv::Point> points) {
+	const float scale_factor = 4.0f;
+
 	cv::Mat drawing = src.clone();
+	cv::resize(drawing, drawing, cv::Size(), 4, 4);
+
+	for (cv::Point& point : points)
+	{
+		point.x *= scale_factor;
+		point.y *= scale_factor;
+	}
+
 	drawContours(
 		drawing,
 		std::vector<std::vector<cv::Point>>(1, points),
@@ -120,6 +130,16 @@ void ShowContour(cv::Mat& src, std::vector<cv::Point>& points) {
 	}
 	ShowImage("Image polygon", drawing);
 	cv::destroyAllWindows();
+}
+
+
+void ShowContour(cv::Mat& src, std::vector<wk::Point>& points) {
+	std::vector<cv::Point> cvPoints;
+	for (auto& point : points) {
+		cvPoints.push_back({ point.x, point.y });
+	}
+
+	ShowContour(src, cvPoints);
 }
 
 void ShowContour(cv::Mat& src, std::vector<AtlasGenerator::Vertex>& points) {

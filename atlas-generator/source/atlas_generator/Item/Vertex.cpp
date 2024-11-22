@@ -1,6 +1,6 @@
 #include "Vertex.h"
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{

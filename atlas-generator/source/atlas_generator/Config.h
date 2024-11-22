@@ -4,7 +4,7 @@
 #include <functional>
 #include <algorithm>
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{
