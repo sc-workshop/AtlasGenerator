@@ -252,8 +252,6 @@ namespace wk
 
 					vertices.emplace_back(x, y, u, v);
 				}
-
-				ShowContour(m_image, vertices);
 			}
 
 			if (vertices.empty())
