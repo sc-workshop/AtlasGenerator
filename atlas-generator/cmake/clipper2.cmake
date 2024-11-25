@@ -4,6 +4,7 @@ set(CLIPPER2_UTILS OFF)
 set(CLIPPER2_EXAMPLES OFF)
 set(CLIPPER2_TESTS OFF)
 set(CLIPPER2_USINGZ "OFF")
+set(BUILD_SHARED_LIBS OFF)
 FetchContent_Declare(
     Clipper2
     GIT_REPOSITORY https://github.com/AngusJohnson/Clipper2.git
