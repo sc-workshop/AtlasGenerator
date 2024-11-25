@@ -9,10 +9,15 @@ add_library(wk::atlasGenerator ALIAS ${TARGET})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 wk_project_setup(${TARGET}) 
 
+# Public dependencies
 target_link_libraries(${TARGET} PUBLIC 
     wk::core
-    libnest2d
     opencv_core opencv_imgproc opencv_imgcodecs
+)
+
+# Private dependencies
+target_link_libraries(${TARGET} PRIVATE 
+    libnest2d
     Clipper2
 )
 
