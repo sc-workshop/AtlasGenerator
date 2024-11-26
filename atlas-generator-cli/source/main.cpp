@@ -187,7 +187,7 @@ void process(ProgramOptions& options)
 		if (!fs::exists(guide_path))
 		{
 			cv::Mat image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
-			if (basename.find_last_of("_la") != std::string::npos && image.type() == CV_8UC4)
+			if (basename.substr(basename.size() - 3)== "_la" && image.type() == CV_8UC4)
 			{
 				cv::Mat gray;
 				cv::cvtColor(image, gray, cv::COLOR_BGRA2GRAY);

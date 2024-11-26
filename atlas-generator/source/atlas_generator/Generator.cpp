@@ -204,7 +204,7 @@ namespace wk
 					return false;
 				};
 
-				auto shape = item.transformedShape();
+				auto& shape = item.transformedShape();
 				auto box = item.boundingBox();
 
 				cv::Size& size = sheet_size[item.binId()];
