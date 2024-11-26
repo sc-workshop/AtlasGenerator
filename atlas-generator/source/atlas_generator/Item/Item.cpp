@@ -15,16 +15,16 @@ namespace wk
 		{
 		}
 
-		Item::Item(cv::Mat& image, Type type) : m_type(type), m_image(image)
+		Item::Item(cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
 		{
 		}
 
-		Item::Item(std::filesystem::path path, Type type) : m_type(type)
+		Item::Item(std::filesystem::path path, bool sliced) : m_sliced(sliced)
 		{
 			m_image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
 		}
 
-		Item::Item(cv::Scalar color, Type type) : m_type(type)
+		Item::Item(cv::Scalar color)
 		{
 			m_image = cv::Mat(1, 1, CV_8UC4, color);
 		}
@@ -39,12 +39,18 @@ namespace wk
 		{
 			if (is_sliced()) return true;
 
-			return width() <= 10 || height() <= 10;
+			return width() <= 50 || height() <= 50;
 		};
 
 		bool Item::is_sliced() const
 		{
-			return m_type == Item::Type::Sliced;
+			return m_sliced;
+		}
+
+		bool Item::mark_as_custom()
+		{
+			m_status = Status::Valid;
+			return true;
 		}
 
 		void Item::generate_image_polygon(const Config& config)
@@ -143,7 +149,7 @@ namespace wk
 				static_cast<int>(abs(static_cast<float>(current_size.height) / 2))
 			};
 
-			float distance_threshold = (current_size.width + current_size.height) * 0.03f;
+			float distance_threshold = (current_size.width + current_size.height) * 0.015f;
 
 			auto calculate_triangle = [&centroid, &current_size, &polygon, &triangles, &distance_threshold, this](Point input_point)
 				{
@@ -234,14 +240,29 @@ namespace wk
 
 				if (solution.size() != 1)
 				{
-#ifdef _MSC_VER
+					// for (size_t i = 0; solution.size() > i; i++)
+					// {
+					// 	PathD& path = solution[i];
+					// 	std::vector<cv::Point> points;
+					// 	for (auto& point : path)
+					// 	{
+					// 		points.emplace_back(point.x, point.y);
+					// 	}
+					// 
+					// 	ShowContour(m_image, points);
+					// 
+					// 	for (auto& triangle : triangles)
+					// 	{
+					// 		ShowContour(m_image, Container<Point>{ triangle.p1, triangle.p2, triangle.p3 });
+					// 	}
+					// }
+
 					assert(0);
-#endif
 					fallback_rectangle();
 					return;
 				}
 
-				PathD path = solution[0];
+				PathD& path = solution[0];
 				vertices.reserve(path.size());
 				for (auto& point : path)
 				{
@@ -294,174 +315,174 @@ namespace wk
 			return result;
 		}
 
-		void Item::get_sliced_area(Item::SlicedArea area, const Rect& guide, Rect& xy, RectUV& uv, const Transformation xy_transform) const
-		{
-			if (!is_rectangle()) return;
-
-			// TODO: Move to separate builder class?
-			Rect xy_bound = bound();
-
-			Point xy_bottom_left_corner(xy_bound.left, xy_bound.bottom);
-			xy_transform.transform_point(xy_bottom_left_corner);
-
-			Point xy_top_right_corner(xy_bound.right, xy_bound.top);
-			xy_transform.transform_point(xy_top_right_corner);
-
-			Rect xy_rectangle(
-				xy_bottom_left_corner.x, xy_bottom_left_corner.y,
-				xy_top_right_corner.x, xy_top_right_corner.y
-			);
-
-			RectUV uv_rectangle(
-				vertices[0].uv.u, vertices[0].uv.v,
-				vertices[2].uv.u, vertices[2].uv.v
-			);
-
-			int16_t left_width_size = (int16_t)abs(guide.right - xy_rectangle.x);
-			int16_t top_height_size = (int16_t)abs(guide.top - xy_rectangle.height);
-			int16_t bottom_height_size = (int16_t)abs(guide.bottom - xy_rectangle.y);
-			int16_t middle_width_size = (int16_t)abs((guide.left - xy_rectangle.x) - left_width_size);
-			int16_t middle_height_size = (int16_t)abs(guide.top - (xy_rectangle.y + bottom_height_size));
-			int16_t right_width_size = (int16_t)abs(guide.left - xy_rectangle.width);
-
-			switch (area)
-			{
-			case Item::SlicedArea::BottomLeft:
-				if (guide.right < xy_rectangle.x || guide.bottom < xy_rectangle.y) return;
-
-				{
-					xy.x = xy_rectangle.x;
-					xy.y = xy_rectangle.y;
-
-					xy.width = left_width_size;
-					xy.height = bottom_height_size;
-				}
-
-				{
-					uv.x = uv_rectangle.x;
-					uv.y = uv_rectangle.y;
-				}
-				break;
-			case Item::SlicedArea::BottomMiddle:
-			{
-				xy.x = xy_rectangle.x + left_width_size;
-				xy.y = xy_rectangle.y;
-
-				xy.width = middle_width_size;
-				xy.height = bottom_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x + left_width_size;
-				uv.y = uv_rectangle.y;
-			}
-
-			break;
-			case Item::SlicedArea::BottomRight:
-			{
-				xy.x = guide.left;
-				xy.y = xy_rectangle.y;
-
-				xy.width = right_width_size;
-				xy.height = bottom_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x + left_width_size + middle_width_size;
-				uv.y = uv_rectangle.y;
-			}
-			break;
-			case Item::SlicedArea::MiddleLeft:
-			{
-				xy.x = xy_rectangle.x;
-				xy.y = xy_rectangle.y + bottom_height_size;
-
-				xy.width = left_width_size;
-				xy.height = middle_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x;
-				uv.y = uv_rectangle.y + bottom_height_size;
-			}
-			break;
-			case Item::SlicedArea::Center:
-			{
-				xy.x = xy_rectangle.x + left_width_size;
-				xy.y = xy_rectangle.y + bottom_height_size;
-
-				xy.width = middle_width_size;
-				xy.height = middle_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x + left_width_size;
-				uv.y = uv_rectangle.y + bottom_height_size;
-			}
-			break;
-			case Item::SlicedArea::MiddleRight:
-			{
-				xy.x = guide.left;
-				xy.y = xy_rectangle.y + bottom_height_size;
-
-				xy.width = right_width_size;
-				xy.height = middle_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x + left_width_size + middle_width_size;
-				uv.y = uv_rectangle.y + bottom_height_size;
-			}
-			break;
-			case Item::SlicedArea::TopLeft:
-			{
-				xy.x = xy_rectangle.x;
-				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-
-				xy.width = left_width_size;
-				xy.height = top_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x;
-				uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-			}
-			break;
-			case Item::SlicedArea::TopMiddle:
-			{
-				xy.x = xy_rectangle.x + left_width_size;
-				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-
-				xy.width = middle_width_size;
-				xy.height = top_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x + left_width_size;
-				uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-			}
-			break;
-			case Item::SlicedArea::TopRight:
-			{
-				xy.x = guide.left;
-				xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-
-				xy.width = right_width_size;
-				xy.height = top_height_size;
-			}
-
-			{
-				uv.x = uv_rectangle.x + left_width_size + middle_width_size;
-				uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-			}
-			break;
-			default:
-				break;
-			}
-
-			uv.width = (uint16_t)std::clamp<int32_t>(xy.width, 0i16, UINT16_MAX);
-			uv.height = (uint16_t)std::clamp<int32_t>(xy.height, 0i16, UINT16_MAX);
-		}
+		// void Item::get_sliced_area(Item::SlicedArea area, const Rect& guide, Rect& xy, RectUV& uv, const Transformation xy_transform) const
+		// {
+		// 	if (!is_rectangle()) return;
+		// 
+		// 	// TODO: Move to separate builder class?
+		// 	Rect xy_bound = bound();
+		// 
+		// 	Point xy_bottom_left_corner(xy_bound.left, xy_bound.bottom);
+		// 	xy_transform.transform_point(xy_bottom_left_corner);
+		// 
+		// 	Point xy_top_right_corner(xy_bound.right, xy_bound.top);
+		// 	xy_transform.transform_point(xy_top_right_corner);
+		// 
+		// 	Rect xy_rectangle(
+		// 		xy_bottom_left_corner.x, xy_bottom_left_corner.y,
+		// 		xy_top_right_corner.x, xy_top_right_corner.y
+		// 	);
+		// 
+		// 	RectUV uv_rectangle(
+		// 		vertices[0].uv.u, vertices[0].uv.v,
+		// 		vertices[2].uv.u, vertices[2].uv.v
+		// 	);
+		// 
+		// 	int16_t left_width_size = (int16_t)abs(guide.right - xy_rectangle.x);
+		// 	int16_t top_height_size = (int16_t)abs(guide.top - xy_rectangle.height);
+		// 	int16_t bottom_height_size = (int16_t)abs(guide.bottom - xy_rectangle.y);
+		// 	int16_t middle_width_size = (int16_t)abs((guide.left - xy_rectangle.x) - left_width_size);
+		// 	int16_t middle_height_size = (int16_t)abs(guide.top - (xy_rectangle.y + bottom_height_size));
+		// 	int16_t right_width_size = (int16_t)abs(guide.left - xy_rectangle.width);
+		// 
+		// 	switch (area)
+		// 	{
+		// 	case Item::SlicedArea::BottomLeft:
+		// 		if (guide.right < xy_rectangle.x || guide.bottom < xy_rectangle.y) return;
+		// 
+		// 		{
+		// 			xy.x = xy_rectangle.x;
+		// 			xy.y = xy_rectangle.y;
+		// 
+		// 			xy.width = left_width_size;
+		// 			xy.height = bottom_height_size;
+		// 		}
+		// 
+		// 		{
+		// 			uv.x = uv_rectangle.x;
+		// 			uv.y = uv_rectangle.y;
+		// 		}
+		// 		break;
+		// 	case Item::SlicedArea::BottomMiddle:
+		// 	{
+		// 		xy.x = xy_rectangle.x + left_width_size;
+		// 		xy.y = xy_rectangle.y;
+		// 
+		// 		xy.width = middle_width_size;
+		// 		xy.height = bottom_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x + left_width_size;
+		// 		uv.y = uv_rectangle.y;
+		// 	}
+		// 
+		// 	break;
+		// 	case Item::SlicedArea::BottomRight:
+		// 	{
+		// 		xy.x = guide.left;
+		// 		xy.y = xy_rectangle.y;
+		// 
+		// 		xy.width = right_width_size;
+		// 		xy.height = bottom_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x + left_width_size + middle_width_size;
+		// 		uv.y = uv_rectangle.y;
+		// 	}
+		// 	break;
+		// 	case Item::SlicedArea::MiddleLeft:
+		// 	{
+		// 		xy.x = xy_rectangle.x;
+		// 		xy.y = xy_rectangle.y + bottom_height_size;
+		// 
+		// 		xy.width = left_width_size;
+		// 		xy.height = middle_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x;
+		// 		uv.y = uv_rectangle.y + bottom_height_size;
+		// 	}
+		// 	break;
+		// 	case Item::SlicedArea::Center:
+		// 	{
+		// 		xy.x = xy_rectangle.x + left_width_size;
+		// 		xy.y = xy_rectangle.y + bottom_height_size;
+		// 
+		// 		xy.width = middle_width_size;
+		// 		xy.height = middle_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x + left_width_size;
+		// 		uv.y = uv_rectangle.y + bottom_height_size;
+		// 	}
+		// 	break;
+		// 	case Item::SlicedArea::MiddleRight:
+		// 	{
+		// 		xy.x = guide.left;
+		// 		xy.y = xy_rectangle.y + bottom_height_size;
+		// 
+		// 		xy.width = right_width_size;
+		// 		xy.height = middle_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x + left_width_size + middle_width_size;
+		// 		uv.y = uv_rectangle.y + bottom_height_size;
+		// 	}
+		// 	break;
+		// 	case Item::SlicedArea::TopLeft:
+		// 	{
+		// 		xy.x = xy_rectangle.x;
+		// 		xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
+		// 
+		// 		xy.width = left_width_size;
+		// 		xy.height = top_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x;
+		// 		uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
+		// 	}
+		// 	break;
+		// 	case Item::SlicedArea::TopMiddle:
+		// 	{
+		// 		xy.x = xy_rectangle.x + left_width_size;
+		// 		xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
+		// 
+		// 		xy.width = middle_width_size;
+		// 		xy.height = top_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x + left_width_size;
+		// 		uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
+		// 	}
+		// 	break;
+		// 	case Item::SlicedArea::TopRight:
+		// 	{
+		// 		xy.x = guide.left;
+		// 		xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
+		// 
+		// 		xy.width = right_width_size;
+		// 		xy.height = top_height_size;
+		// 	}
+		// 
+		// 	{
+		// 		uv.x = uv_rectangle.x + left_width_size + middle_width_size;
+		// 		uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
+		// 	}
+		// 	break;
+		// 	default:
+		// 		break;
+		// 	}
+		// 
+		// 	uv.width = (uint16_t)std::clamp<int32_t>(xy.width, 0i16, UINT16_MAX);
+		// 	uv.height = (uint16_t)std::clamp<int32_t>(xy.height, 0i16, UINT16_MAX);
+		// }
 
 		bool Item::operator ==(Item& other)
 		{
@@ -469,7 +490,7 @@ namespace wk
 
 			if (std::addressof(image()) == std::addressof(other.image())) return true;
 
-			if (width() != other.width() || height() != other.height()) return false;
+			if (m_image.type() != other.image().type() || width() != other.width() || height() != other.height()) return false;
 			int imageChannelsCount = other.image().channels();
 			int otherChannelsCount = other.image().channels();
 
@@ -531,11 +552,6 @@ namespace wk
 					{
 						Vec4b pixel = m_image.at<Vec4b>(h, w);
 
-						//if (pixel[3] <= 2) {
-						//	m_image.at<cv::Vec4b>(h, w) = { 0, 0, 0, 0 };
-						//	continue;
-						//};
-
 						// Alpha premultiply
 						float alpha = static_cast<float>(pixel[3]) / 255.0f;
 						m_image.at<Vec4b>(h, w) = {
@@ -550,13 +566,7 @@ namespace wk
 					{
 						Vec2b& pixel = m_image.at<Vec2b>(h, w);
 
-						//if (pixel[1] <= 2) {
-						//	pixel[0] = 0;
-						//	pixel[1] = 0;
-						//	continue;
-						//};
-
-						float alpha = static_cast<float>(pixel[3]) / 255.0f;
+						float alpha = static_cast<float>(pixel[1]) / 255.0f;
 						m_image.at<Vec2b>(h, w) = {
 							static_cast<uchar>(pixel[0] * alpha),
 							pixel[1]
@@ -574,12 +584,6 @@ namespace wk
 			findContours(image, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
 			for (std::vector<cv::Point>& points : contours) {
-#ifdef CV_DEBUG
-				cv::Mat drawingImage;
-				cvtColor(image, drawingImage, cv::COLOR_GRAY2BGR);
-				ShowContour(drawingImage, points);
-#endif
-
 				std::move(points.begin(), points.end(), std::back_inserter(result));
 		}
 	}
@@ -602,11 +606,7 @@ namespace wk
 					};
 				}
 			}
-
-#ifdef CV_DEBUG
-			ShowImage("Mask", mask);
-#endif // CV_DEBUG
-			}
+		}
 
 		//void Item::extrude_points(cv::Mat& src, Container<cv::Point>& points)
 		//{

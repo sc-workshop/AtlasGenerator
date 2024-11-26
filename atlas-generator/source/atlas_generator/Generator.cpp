@@ -13,18 +13,67 @@ namespace wk
 
 		size_t Generator::generate(Container<Item>& items)
 		{
-			Container<size_t> inverse_duplicate_indices;
-			inverse_duplicate_indices.reserve(items.size() / 2);
-			m_items.reserve(items.size());
+			if (items.empty()) return 0;
 
+			std::map<int, size_t, std::greater<int>> texture_variants;
 			for (size_t i = 0; items.size() > i; i++)
 			{
 				Item& item = items[i];
 
-				if (item.image().channels() != 4)
+				if (!Generator::validate_image(item.image()))
 				{
 					throw PackagingException(PackagingException::Reason::UnsupportedImage, i);
 				}
+
+				texture_variants[item.image().type()]++;
+			}
+
+			if (texture_variants.size() == 1)
+			{
+				int type = items[0].image().type();
+
+				// iterate just by items vector
+				auto it = ItemIterator<size_t>(0, items.size());
+				return generate(items, it, type);
+			}
+
+			size_t bin_count = 0;
+			m_item_counter = 0;
+			for (auto it = texture_variants.begin(); it != texture_variants.end(); ++it)
+			{
+				int type = it->first;
+				Container<size_t> item_indices;
+				item_indices.reserve(it->second);
+
+				for (size_t i = 0; items.size() > i; i++)
+				{
+					Item& item = items[i];
+					if (item.image().type() == type)
+					{
+						item_indices.push_back(i);
+					}
+				}
+
+				m_items.reserve(item_indices.size());
+				m_duplicate_indices.reserve(item_indices.size());
+
+				// iterate only by current type items
+				auto item_it = ItemIterator<size_t>(0, item_indices.size(), item_indices);
+				bin_count += generate(items, item_it, type);
+			}
+			
+			return bin_count;
+		}
+
+		size_t Generator::generate(Container<Item>& items, ItemIterator<size_t>& item_iterator, int type)
+		{
+			Container<size_t> inverse_duplicate_indices;
+			inverse_duplicate_indices.reserve(items.size() / 2);
+
+			for (auto it = item_iterator.begin(); it != item_iterator.end(); ++it)
+			{
+				const size_t i = *it;
+				Item& item = items[i];
 
 				// Searching for duplicates
 				{
@@ -40,15 +89,14 @@ namespace wk
 					m_duplicate_indices.push_back(item_index);
 					if (item_index != SIZE_MAX) continue;
 				}
-
 				inverse_duplicate_indices.push_back(i);
 				m_items.push_back(&item);
 			}
-
+		
 			for (size_t i = 0; m_items.size() > i; i++)
 			{
 				Item* item = m_items[i];
-
+		
 				if (item->status() == Item::Status::Unset)
 				{
 					item->generate_image_polygon(m_config);
@@ -56,33 +104,34 @@ namespace wk
 					{
 						throw PackagingException(PackagingException::Reason::InvalidPolygon, inverse_duplicate_indices[i]);
 					}
-
+		
 					if (item->width() > m_config.width() || item->height() > m_config.height())
 					{
 						throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
 					}
 				}
 			}
-
-			if (!pack_items())
+			
+			size_t current_atlas_count = m_atlases.size();
+			if (!pack_items(type))
 			{
 				throw PackagingException(PackagingException::Reason::Unknown);
 			};
-
-			for (size_t i = 0; items.size() > i; i++)
+		
+			for (size_t i = 0; m_items.size() > i; i++)
 			{
 				size_t item_index = m_duplicate_indices[i];
-
+		
 				if (item_index != SIZE_MAX)
 				{
 					items[i] = items[item_index];
 				}
 			}
-
+		
 			m_duplicate_indices.clear();
 			m_items.clear();
-
-			return (uint8_t)m_atlases.size();
+		
+			return m_atlases.size() - current_atlas_count;
 		}
 
 		cv::Mat& Generator::get_atlas(uint8_t atlas)
@@ -90,7 +139,23 @@ namespace wk
 			return m_atlases[atlas];
 		}
 
-		bool Generator::pack_items()
+		bool Generator::validate_image(cv::Mat& image)
+		{
+			if (1 > image.rows || 1 > image.cols)
+			{
+				return false;
+			}
+
+			int type = image.type();
+			if (type != CV_8UC1 && type != CV_8UC2 && type != CV_8UC3 && type != CV_8UC4)
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		bool Generator::pack_items(int atlas_type)
 		{
 			// Vector with polygons for libnest2d
 			std::vector<libnest2d::Item> packer_items;
@@ -117,8 +182,12 @@ namespace wk
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 
 			libnest2d::NestControl control;
-			control.progressfn = m_config.progress;
+			control.progressfn = [&](unsigned)
+				{
+					m_config.progress(m_item_counter++);
+				};
 
+			size_t bin_offset = m_atlases.size();
 			size_t bin_count = nest(
 				packer_items,
 				libnest2d::Box(
@@ -153,26 +222,10 @@ namespace wk
 
 			for (cv::Size& size : sheet_size)
 			{
-				int type = CV_8UC4;
-				switch (m_config.type())
-				{
-				case Config::TextureType::RGB:
-					type = CV_8UC3;
-					break;
-				case Config::TextureType::LUMINANCE_ALPHA:
-					type = CV_8UC2;
-					break;
-				case Config::TextureType::LIMINANCE:
-					type = CV_8UC1;
-					break;
-				default:
-					break;
-				}
-
 				m_atlases.emplace_back(
 					size.width,
 					size.height,
-					type,
+					atlas_type,
 					cv::Scalar(0)
 				);
 			}
@@ -207,59 +260,52 @@ namespace wk
 
 				cv::copyMakeBorder(item.image(), item.image(), m_config.extrude(), m_config.extrude(), m_config.extrude(), m_config.extrude(), cv::BORDER_REPLICATE);
 
-				place_image_to(
-					item.image(),
-					item.texture_index,
-					static_cast<uint16_t>(libnest2d::getX(box.minCorner()) - m_config.extrude() * 2),
-					static_cast<uint16_t>(libnest2d::getY(box.minCorner()) - m_config.extrude() * 2)
-				);
+				auto& image = item.image();
+				auto index = bin_offset + item.texture_index;
+				auto x = static_cast<uint16_t>(libnest2d::getX(box.minCorner()) - m_config.extrude() * 2);
+				auto y = static_cast<uint16_t>(libnest2d::getY(box.minCorner()) - m_config.extrude() * 2);
+
+				switch (atlas_type)
+				{
+				case CV_8UC1:
+					place_image_to<cv::Vec<uchar, 1>, false>(
+						image,
+						index,
+						x,
+						y
+					);
+					break;
+				case CV_8UC2:
+					place_image_to<cv::Vec2b, true, 1>(
+						image,
+						index,
+						x,
+						y
+					);
+					break;
+				case CV_8UC3:
+					place_image_to<cv::Vec3b, false>(
+						image,
+						index,
+						x,
+						y
+					);
+					break;
+				case CV_8UC4:
+					place_image_to<cv::Vec4b, true, 3>(
+						image,
+						index,
+						x,
+						y
+					);
+					break;
+				default:
+					break;
+				}
+				
 			}
 
 			return true;
 		}
-
-		void Generator::place_image_to(cv::Mat& src, uint8_t atlas_index, uint16_t x, uint16_t y)
-		{
-			using namespace cv;
-
-			cv::Mat& dst = m_atlases[atlas_index];
-
-			Size srcSize = src.size();
-			Size dstSize = dst.size();
-
-			for (uint16_t h = 0; srcSize.height > h; h++) {
-				uint16_t dstH = h + y;
-				if (dstH >= dstSize.height) continue;
-
-				for (uint16_t w = 0; srcSize.width > w; w++) {
-					uint16_t dstW = w + x;
-					if (dstW >= dstSize.width) continue;
-
-					Vec4b pixel(0, 0, 0, 0);
-
-					switch (src.channels())
-					{
-					case 4:
-						pixel = src.at<cv::Vec4b>(h, w);
-						break;
-					default:
-						break;
-					}
-
-					if (pixel[3] == 0) {
-						continue;
-					}
-
-					switch (dst.channels())
-					{
-					case 4:
-						dst.at<Vec4b>(dstH, dstW) = pixel;
-						break;
-					default:
-						break;
-					}
-				}
-			}
-		};
 	}
 }

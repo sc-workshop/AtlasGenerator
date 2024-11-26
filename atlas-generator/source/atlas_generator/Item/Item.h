@@ -56,39 +56,19 @@ namespace wk
 				InvalidPolygon
 			};
 
-			enum class Type : uint8_t
-			{
-				Sprite,
-				Sliced
-			};
-
-			enum class SlicedArea : uint8_t
-			{
-				BottomLeft = 1,
-				BottomMiddle,
-				BottomRight,
-				MiddleLeft,
-				Center,
-				MiddleRight,
-				TopLeft,
-				TopMiddle,
-				TopRight
-			};
-
 		public:
-			Item(cv::Mat& image, Type type = Type::Sprite);
-			Item(std::filesystem::path path, Type type = Type::Sprite);
-			Item(cv::Scalar color, Type type = Type::Sprite);
+			Item(cv::Mat& image, bool sliced = false);
+			Item(std::filesystem::path path, bool sliced = false);
+			Item(cv::Scalar color);
 
 			virtual ~Item() = default;
 
 			// Image Info
 		public:
-			virtual Status status() const;
+			Status status() const;
 			virtual uint16_t width() const;
 			virtual uint16_t height() const;
 
-			// TODO: move to self written image class?
 			virtual cv::Mat& image();
 
 			// Generator Info
@@ -100,22 +80,23 @@ namespace wk
 			Transformation transform;
 
 		public:
-			virtual bool is_rectangle() const;
-			virtual bool is_sliced() const;
+			bool is_rectangle() const;
+			bool is_sliced() const;
 
 		public:
 			// XY coords bound
 			Rect bound() const;
 			void generate_image_polygon(const Config& config);
+			bool mark_as_custom();
 
 		public:
-			void get_sliced_area(
-				SlicedArea area,
-				const Rect& guide,
-				Rect& xy,
-				RectUV& uv,
-				const Transformation xy_transform = Transformation()
-			) const;
+			// void get_sliced_area(
+			// 	SlicedArea area,
+			// 	const Rect& guide,
+			// 	Rect& xy,
+			// 	RectUV& uv,
+			// 	const Transformation xy_transform = Transformation()
+			// ) const;
 
 		public:
 			bool operator ==(Item& other);
@@ -129,9 +110,10 @@ namespace wk
 			void normalize_mask(cv::Mat& mask);
 
 		protected:
-			Type m_type;
 			Status m_status = Status::Unset;
 			bool m_preprocessed = false;
+			bool m_sliced = false;
+
 			cv::Mat m_image;
 		};
 	}
