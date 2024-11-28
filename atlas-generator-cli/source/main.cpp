@@ -210,7 +210,7 @@ void process(ProgramOptions& options)
 		if (!fs::exists(guide_path))
 		{
 			cv::Mat image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
-			if (basename.substr(basename.size() - 3)== "_la" && image.type() == CV_8UC4)
+			if (basename.size() > 3 && basename.substr(basename.size() - 3)== "_la" && image.type() == CV_8UC4)
 			{
 				cv::Mat gray;
 				cv::cvtColor(image, gray, cv::COLOR_BGRA2GRAY);
