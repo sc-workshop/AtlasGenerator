@@ -62,8 +62,6 @@ namespace wk {
 					}
 				}
 			};
-
-		
 			static bool validate_image(cv::Mat& image);
 
 		private:

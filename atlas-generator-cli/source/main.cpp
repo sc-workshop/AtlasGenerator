@@ -90,10 +90,32 @@ public:
 
 #pragma region CV Debug Functions
 
+void grayAlpha_to_rgba(cv::Mat& input, cv::Mat& output)
+{
+	cv::Mat gray, gray_alpha;
+
+	cv::extractChannel(input, gray, 0);
+	cv::extractChannel(input, gray_alpha, 1);
+
+	std::vector<cv::Mat> channels({ gray, gray, gray, gray_alpha });
+
+	cv::merge(channels, output);
+}
+
 void ShowImage(std::string name, cv::Mat& image) {
 	cv::namedWindow(name, cv::WINDOW_NORMAL);
 
-	cv::imshow(name, image);
+	if (image.channels() == 2)
+	{
+		cv::Mat result;
+		grayAlpha_to_rgba(image, result);
+		cv::imshow(name, result);
+	}
+	else
+	{
+		cv::imshow(name, image);
+	}
+
 	cv::waitKey(0);
 }
 
@@ -150,6 +172,7 @@ void ShowContour(cv::Mat& src, std::vector<AtlasGenerator::Vertex>& points) {
 
 	ShowContour(src, cvPoints);
 }
+
 #pragma endregion
 
 void process(ProgramOptions& options)
@@ -280,14 +303,8 @@ void process(ProgramOptions& options)
 
 		if (image.channels() == 2)
 		{
-			cv::Mat gray, gray_alpha, result;
-			
-			cv::extractChannel(image, gray, 0);
-			cv::extractChannel(image, gray_alpha, 1);
-
-			std::vector<cv::Mat> channels({ gray, gray, gray, gray_alpha });
-
-			cv::merge(channels, result);
+			cv::Mat result;
+			grayAlpha_to_rgba(image, result);
 
 			cv::imwrite(
 				destination,
@@ -383,6 +400,13 @@ void process(ProgramOptions& options)
 				if (item.is_sliced())
 				{
 					cv::Mat sliced_image(item.image().size(), CV_8UC4, cv::Scalar(0));
+					Container<Container<Vertex>> regions;
+					item.get_sliced_regions(
+						guides[i],
+						guide_transform[i],
+						regions
+					);
+
 					// for (uint8_t area_index = (uint8_t)AtlasGenerator::Item::SlicedArea::BottomLeft; (uint8_t)AtlasGenerator::Item::SlicedArea::TopRight >= area_index; area_index++)
 					// {
 					// 	Rect xy;
@@ -426,14 +450,14 @@ void process(ProgramOptions& options)
 					// 		}
 					// 	}
 					// }
-					// matrices.push_back(sliced_image);
+					matrices.push_back(sliced_image);
 				}
 
-				{
-					cv::Mat canvas;
-					cv::hconcat(matrices, canvas);
-					ShowImage("Item", canvas);
-				}
+				// {
+				// 	cv::Mat canvas;
+				// 	cv::hconcat(matrices, canvas);
+				// 	ShowImage("Item", canvas);
+				// }
 			}
 		}
 
@@ -443,10 +467,6 @@ void process(ProgramOptions& options)
 
 		for (uint8_t i = 0; bin_count > i; i++) {
 			ShowImage("Atlas", generator.get_atlas(i));
-		}
-
-		if (options.is_item_debug)
-		{
 		}
 
 		cv::destroyAllWindows();

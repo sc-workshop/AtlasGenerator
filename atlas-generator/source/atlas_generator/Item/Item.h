@@ -73,7 +73,7 @@ namespace wk
 
 			// Generator Info
 		public:
-			uint8_t texture_index = 0xFF;
+			size_t texture_index = 0xFF;
 			Container<Vertex> vertices;
 
 			// UV Transformation
@@ -97,6 +97,12 @@ namespace wk
 			// 	RectUV& uv,
 			// 	const Transformation xy_transform = Transformation()
 			// ) const;
+
+			void get_sliced_regions(
+				const Rect& guide,
+				const Transformation xy_transform,
+				Container<Container<Vertex>>& result
+			) const;
 
 		public:
 			bool operator ==(Item& other);

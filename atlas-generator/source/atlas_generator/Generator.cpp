@@ -241,7 +241,7 @@ namespace wk
 				auto box = packer_item.boundingBox();
 
 				// Item Data
-				item.texture_index = (uint8_t)packer_item.binId();
+				item.texture_index = bin_offset + packer_item.binId();
 				item.transform.rotation = rotation;
 				item.transform.translation.x = (int32_t)libnest2d::getX(packer_item.translation()) - m_config.extrude();
 				item.transform.translation.y = (int32_t)libnest2d::getY(packer_item.translation()) - m_config.extrude();
@@ -261,7 +261,7 @@ namespace wk
 				cv::copyMakeBorder(item.image(), item.image(), m_config.extrude(), m_config.extrude(), m_config.extrude(), m_config.extrude(), cv::BORDER_REPLICATE);
 
 				auto& image = item.image();
-				auto index = bin_offset + item.texture_index;
+				auto index = item.texture_index;
 				auto x = static_cast<uint16_t>(libnest2d::getX(box.minCorner()) - m_config.extrude() * 2);
 				auto y = static_cast<uint16_t>(libnest2d::getY(box.minCorner()) - m_config.extrude() * 2);
 
