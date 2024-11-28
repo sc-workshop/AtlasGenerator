@@ -164,7 +164,10 @@ namespace wk
 					auto intersection_result = line_intersect(polygon, ray);
 					if (!intersection_result.has_value()) return;
 
-					auto& [p1, p2, intersect] = intersection_result.value();
+					auto& [p1_idx, p2_idx, intersect] = intersection_result.value();
+
+					const Point& p1 = polygon[p1_idx];
+					const Point& p2 = polygon[p2_idx];
 
 					//ShowContour(m_image, Container<Point>{ p1, p2 });
 
