@@ -16,7 +16,7 @@ target_link_libraries(${TARGET} PUBLIC
 )
 
 # Private dependencies
-target_link_libraries(${TARGET} PRIVATE 
+target_link_libraries(${TARGET} PUBLIC 
     libnest2d
     Clipper2
 )
@@ -34,3 +34,12 @@ target_include_directories(${TARGET}
 set_target_properties(${TARGET} PROPERTIES
     FOLDER WorkshopSDK/
 )
+
+#add_custom_command(TARGET ${TARGET} POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${TARGET}> $<TARGET_FILE_DIR:${TARGET}>
+#    COMMAND_EXPAND_LISTS
+#)
+
+if (BUILD_SHARED_LIBS)
+    
+endif()
