@@ -39,7 +39,7 @@ set(WITH_ADE OFF)
 
 if (NOT DEFINED BUILD_LIST OR NOT BUILD_LIST)
     set(WITH_WIN32UI OFF)
-    set(BUILD_LIST "imgproc")
+    set(BUILD_LIST "core;imgproc" CACHE STRING "")
 endif()
 
 FetchContent_Declare(

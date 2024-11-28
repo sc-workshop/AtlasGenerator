@@ -12,7 +12,6 @@ wk_project_setup(${TARGET})
 # Public dependencies
 target_link_libraries(${TARGET} PUBLIC 
     wk::core
-    opencv_core opencv_imgproc opencv_imgcodecs
 )
 
 # Private dependencies
@@ -26,20 +25,19 @@ target_include_directories(${TARGET}
     "source/"
     ${OPENCV_CONFIG_FILE_INCLUDE_DIR}
     ${opencv_SOURCE_DIR}/include
-    ${OPENCV_MODULE_opencv_core_LOCATION}/include
-    ${OPENCV_MODULE_opencv_imgproc_LOCATION}/include
-    ${OPENCV_MODULE_opencv_imgcodecs_LOCATION}/include
 )
 
 set_target_properties(${TARGET} PROPERTIES
     FOLDER WorkshopSDK/
 )
 
-#add_custom_command(TARGET ${TARGET} POST_BUILD
-#    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${TARGET}> $<TARGET_FILE_DIR:${TARGET}>
-#    COMMAND_EXPAND_LISTS
-#)
+foreach(lib IN LISTS BUILD_LIST)
+    target_link_libraries(${TARGET} PUBLIC 
+        opencv_${lib}
+    )
 
-if (BUILD_SHARED_LIBS)
-    
-endif()
+    target_include_directories(${TARGET}
+        PUBLIC
+        ${OPENCV_MODULE_opencv_${lib}_LOCATION}/include
+    )
+endforeach()
