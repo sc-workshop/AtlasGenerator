@@ -182,10 +182,13 @@ namespace wk
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 
 			libnest2d::NestControl control;
-			control.progressfn = [&](unsigned)
-				{
-					m_config.progress(m_item_counter++);
-				};
+			if (m_config.progress)
+			{
+				control.progressfn = [&](unsigned)
+					{
+						m_config.progress(m_item_counter++);
+					};
+			}
 
 			size_t bin_offset = m_atlases.size();
 			size_t bin_count = nest(
