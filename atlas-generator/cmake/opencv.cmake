@@ -39,7 +39,15 @@ set(WITH_ADE OFF)
 
 if (NOT DEFINED BUILD_LIST OR NOT BUILD_LIST)
     set(WITH_WIN32UI OFF)
-    set(BUILD_LIST "core;imgproc" CACHE STRING "")
+    
+
+    if (${BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS})
+        set(BUILD_LIST "core;imgproc;imgcodecs" CACHE STRING "")
+        
+    else()
+        set(BUILD_LIST "core;imgproc" CACHE STRING "")
+    endif()
+
 endif()
 
 FetchContent_Declare(

@@ -18,16 +18,18 @@ namespace wk
 		{
 		}
 
-		Item::Item(std::filesystem::path path, bool sliced) : m_sliced(sliced)
-		{
-			m_image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
-		}
-
 		Item::Item(cv::Scalar color)
 		{
 			m_image = cv::Mat(1, 1, CV_8UC4, color);
 			m_colorfill = true;
 		}
+
+#ifdef ATLAS_GENERATOR_WITH_IMAGE_CODECS
+		Item::Item(std::filesystem::path path, bool sliced) : m_sliced(sliced)
+		{
+			m_image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
+		}
+#endif
 
 		Item::Status Item::status() const { return m_status; }
 		uint16_t Item::width() const { return (uint16_t)m_image.cols; };
