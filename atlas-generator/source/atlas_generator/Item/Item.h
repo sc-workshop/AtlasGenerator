@@ -4,6 +4,7 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <filesystem>
+#include <optional>
 
 #include "Vertex.h"
 #include "atlas_generator/Config.h"
@@ -82,12 +83,14 @@ namespace wk
 		public:
 			bool is_rectangle() const;
 			bool is_sliced() const;
+			std::optional< AtlasGenerator::Vertex> get_colorfill() const;
 
 		public:
 			// XY coords bound
 			Rect bound() const;
 			void generate_image_polygon(const Config& config);
 			bool mark_as_custom();
+
 
 		public:
 			// void get_sliced_area(
@@ -119,6 +122,7 @@ namespace wk
 			Status m_status = Status::Unset;
 			bool m_preprocessed = false;
 			bool m_sliced = false;
+			bool m_colorfill = false;
 
 			cv::Mat m_image;
 		};

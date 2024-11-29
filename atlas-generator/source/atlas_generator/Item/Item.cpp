@@ -3,7 +3,6 @@
 #include "core/math/triangle.h"
 #include "core/geometry/intersect.hpp"
 
-#include <optional>
 #include <cmath>
 #include <clipper2/clipper.h>
 
@@ -27,6 +26,7 @@ namespace wk
 		Item::Item(cv::Scalar color)
 		{
 			m_image = cv::Mat(1, 1, CV_8UC4, color);
+			m_colorfill = true;
 		}
 
 		Item::Status Item::status() const { return m_status; }
@@ -45,6 +45,16 @@ namespace wk
 		bool Item::is_sliced() const
 		{
 			return m_sliced;
+		}
+
+		std::optional<AtlasGenerator::Vertex> Item::get_colorfill() const
+		{
+			if (vertices.size() >= 1 && m_colorfill)
+			{
+				return vertices[0];
+			}
+
+			return std::nullopt;
 		}
 
 		bool Item::mark_as_custom()
