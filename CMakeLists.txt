@@ -9,6 +9,7 @@ option(BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS "Build an Atlas Generator with ab
 if (${BUILD_ATLAS_GENERATOR_CLI})
     # OpenCV additional things
     set(BUILD_LIST "core;imgproc;imgcodecs;highgui" CACHE INTERNAL "")
+    set(BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS ON)
     add_subdirectory(atlas-generator)
     add_subdirectory(atlas-generator-cli)
 else()
