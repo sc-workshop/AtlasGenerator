@@ -15,6 +15,9 @@ namespace wk
 		{
 			if (items.empty()) return 0;
 
+			m_item_counter = 0;
+			m_duplicate_item_counter = 0;
+
 			std::map<int, size_t, std::greater<int>> texture_variants;
 			for (size_t i = 0; items.size() > i; i++)
 			{
@@ -38,7 +41,6 @@ namespace wk
 			}
 
 			size_t bin_count = 0;
-			m_item_counter = 0;
 			for (auto it = texture_variants.begin(); it != texture_variants.end(); ++it)
 			{
 				int type = it->first;
@@ -78,11 +80,12 @@ namespace wk
 				// Searching for duplicates
 				{
 					size_t item_index = SIZE_MAX;
-					for (size_t j = 0; i > j; j++)
+					for (size_t j = 0; m_items.size() > j; j++)
 					{
-						if (items[j] == item)
+						if (m_items[j].get() == item)
 						{
 							item_index = j;
+							m_duplicate_item_counter++;
 							break;
 						}
 					}
@@ -90,22 +93,22 @@ namespace wk
 					if (item_index != SIZE_MAX) continue;
 				}
 				inverse_duplicate_indices.push_back(i);
-				m_items.push_back(&item);
+				m_items.push_back(item);
 			}
 		
 			for (size_t i = 0; m_items.size() > i; i++)
 			{
-				Item* item = m_items[i];
+				Item& item = m_items[i];
 		
-				if (item->status() == Item::Status::Unset)
+				if (item.status() == Item::Status::Unset)
 				{
-					item->generate_image_polygon(m_config);
-					if (item->vertices.empty())
+					item.generate_image_polygon(m_config);
+					if (item.vertices.empty())
 					{
 						throw PackagingException(PackagingException::Reason::InvalidPolygon, inverse_duplicate_indices[i]);
 					}
 		
-					if (item->width() > m_config.width() || item->height() > m_config.height())
+					if (item.width() > m_config.width() || item.height() > m_config.height())
 					{
 						throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
 					}
@@ -124,7 +127,7 @@ namespace wk
 		
 				if (item_index != SIZE_MAX)
 				{
-					items[i] = items[item_index];
+					items[i] = m_items[item_index];
 				}
 			}
 		
@@ -161,18 +164,18 @@ namespace wk
 			std::vector<libnest2d::Item> packer_items;
 			packer_items.reserve(m_items.size());
 
-			for (const Item* item : m_items)
+			for (const Item& item : m_items)
 			{
 				libnest2d::Item& packer_item = packer_items.emplace_back(
-					std::vector<ClipperLib::IntPoint>(item->vertices.size() + 1)
+					std::vector<ClipperLib::IntPoint>(item.vertices.size() + 1)
 				);
 
 				for (uint16_t i = 0; packer_item.vertexCount() > i; i++) {
-					if (i == item->vertices.size()) { // End point for libnest
-						packer_item.setVertex(i, { item->vertices[0].uv.x, item->vertices[0].uv.y });
+					if (i == item.vertices.size()) { // End point for libnest2d
+						packer_item.setVertex(i, { item.vertices[0].uv.x, item.vertices[0].uv.y });
 					}
 					else {
-						packer_item.setVertex(i, { item->vertices[i].uv.x, item->vertices[i].uv.y });
+						packer_item.setVertex(i, { item.vertices[i].uv.x, item.vertices[i].uv.y });
 					}
 				}
 			}
@@ -186,7 +189,7 @@ namespace wk
 			{
 				control.progressfn = [&](unsigned)
 					{
-						m_config.progress(m_item_counter++);
+						m_config.progress(m_duplicate_item_counter + m_item_counter++);
 					};
 			}
 
@@ -235,7 +238,7 @@ namespace wk
 
 			for (size_t i = 0; m_items.size() > i; i++) {
 				libnest2d::Item packer_item = packer_items[i];
-				Item& item = *m_items[i];
+				Item& item = m_items[i];
 
 				auto rotation = packer_item.rotation();
 				double rotation_degree = -(rotation.toDegrees());

@@ -67,12 +67,13 @@ namespace wk {
 		private:
 			const Config m_config;
 
-			Container<Item*> m_items;
+			Container<std::reference_wrapper<Item>> m_items;
 			Container<size_t> m_duplicate_indices;
 
 			Container<cv::Mat> m_atlases;
 
 			size_t m_item_counter = 0;
+			size_t m_duplicate_item_counter = 0;
 		};
 	}
 }

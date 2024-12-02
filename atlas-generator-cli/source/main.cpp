@@ -269,17 +269,20 @@ void process(ProgramOptions& options)
 
 	config.progress = [&items](size_t count)
 	{
-		print(count + 1 << " \\ " << items.size());
+		std::cout << std::string(100, '\b') << count + 1 << "\\" << items.size() << std::flush;
 	};
 
+	std::cout << "0\\" << items.size();
 	AtlasGenerator::Generator generator(config);
 	size_t bin_count = 0;
 	try
 	{
 		bin_count = generator.generate(items);
+		std::cout << std::endl;
 	}
 	catch (const AtlasGenerator::PackagingException& exception)
 	{
+		std::cout << std::endl;
 		size_t item_index = exception.index();
 		if (item_index == SIZE_MAX)
 		{
@@ -293,6 +296,7 @@ void process(ProgramOptions& options)
 	}
 	catch (const std::exception& exception)
 	{
+		std::cout << std::endl;
 		std::cout << exception.what() << std::endl;
 	}
 
