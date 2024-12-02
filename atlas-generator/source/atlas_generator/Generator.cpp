@@ -103,7 +103,7 @@ namespace wk
 					{
 						item.generate_image_polygon(m_config);
 					}
-				}
+				}, m_config.parallel()
 			);
 		
 			for (size_t i = 0; m_items.size() > i; i++)
@@ -189,6 +189,7 @@ namespace wk
 			libnest2d::NestConfig<libnest2d::NfpPlacer, libnest2d::FirstFitSelection> cfg;
 			cfg.placer_config.alignment = libnest2d::NestConfig<>::Placement::Alignment::DONT_ALIGN;
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
+			cfg.placer_config.parallel = m_config.parallel();
 
 			libnest2d::NestControl control;
 			if (m_config.progress)
