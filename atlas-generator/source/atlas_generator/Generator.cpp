@@ -95,23 +95,29 @@ namespace wk
 				inverse_duplicate_indices.push_back(i);
 				m_items.push_back(item);
 			}
+
+			libnest2d::__parallel::enumerate(
+				m_items.begin(), m_items.end(), [&](Item& item, size_t n)
+				{
+					if (item.status() == Item::Status::Unset)
+					{
+						item.generate_image_polygon(m_config);
+					}
+				}
+			);
 		
 			for (size_t i = 0; m_items.size() > i; i++)
 			{
 				Item& item = m_items[i];
-		
-				if (item.status() == Item::Status::Unset)
+
+				if (item.vertices.empty())
 				{
-					item.generate_image_polygon(m_config);
-					if (item.vertices.empty())
-					{
-						throw PackagingException(PackagingException::Reason::InvalidPolygon, inverse_duplicate_indices[i]);
-					}
-		
-					if (item.width() > m_config.width() || item.height() > m_config.height())
-					{
-						throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
-					}
+					throw PackagingException(PackagingException::Reason::InvalidPolygon, inverse_duplicate_indices[i]);
+				}
+
+				if (item.width() > m_config.width() || item.height() > m_config.height())
+				{
+					throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
 				}
 			}
 			
