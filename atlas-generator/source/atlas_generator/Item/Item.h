@@ -60,10 +60,7 @@ namespace wk
 		public:
 			Item(cv::Mat& image, bool sliced = false);
 			Item(cv::Scalar color);
-
-#ifdef ATLAS_GENERATOR_WITH_IMAGE_CODECS
 			Item(std::filesystem::path path, bool sliced = false);
-#endif
 
 			virtual ~Item() = default;
 
