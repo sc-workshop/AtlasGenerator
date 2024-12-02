@@ -63,14 +63,14 @@ namespace wk
 				auto item_it = ItemIterator<size_t>(0, item_indices.size(), item_indices);
 				bin_count += generate(items, item_it, type);
 			}
-			
+
 			return bin_count;
 		}
 
 		size_t Generator::generate(Container<Item>& items, ItemIterator<size_t>& item_iterator, int type)
 		{
 			Container<size_t> inverse_duplicate_indices;
-			inverse_duplicate_indices.reserve(items.size() / 2);
+			inverse_duplicate_indices.reserve(items.size());
 
 			for (auto it = item_iterator.begin(); it != item_iterator.end(); ++it)
 			{
@@ -104,8 +104,8 @@ namespace wk
 						item.generate_image_polygon(m_config);
 					}
 				}, m_config.parallel()
-			);
-		
+					);
+
 			for (size_t i = 0; m_items.size() > i; i++)
 			{
 				Item& item = m_items[i];
@@ -120,26 +120,31 @@ namespace wk
 					throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
 				}
 			}
-			
+
 			size_t current_atlas_count = m_atlases.size();
 			if (!pack_items(type))
 			{
 				throw PackagingException(PackagingException::Reason::Unknown);
 			};
-		
-			for (size_t i = 0; m_items.size() > i; i++)
+
+			for (size_t i = 0; items.size() > i; i++)
 			{
 				size_t item_index = m_duplicate_indices[i];
-		
+
 				if (item_index != SIZE_MAX)
 				{
-					items[i] = m_items[item_index];
+					const Item& source = m_items[item_index];
+					Item& destination = items[i];
+
+					destination.texture_index = source.texture_index;
+					destination.vertices = source.vertices;
+					destination.transform = source.transform;
 				}
 			}
-		
+
 			m_duplicate_indices.clear();
 			m_items.clear();
-		
+
 			return m_atlases.size() - current_atlas_count;
 		}
 
@@ -315,7 +320,7 @@ namespace wk
 				default:
 					break;
 				}
-				
+
 			}
 
 			return true;
