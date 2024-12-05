@@ -141,7 +141,7 @@ namespace wk
 				double area = arcLength(contour, true);
 
 				// Simplify contour just a bit for better results
-				approxPolyDP(contour, contour, 0.0009 * area, true);
+				//approxPolyDP(contour, contour, 0.0009 * area, true);
 
 				// Getting convex hull as base polygon for calculations
 				Container<cv::Point> hull;
@@ -157,12 +157,12 @@ namespace wk
 			Container<Triangle> triangles;
 			triangles.reserve(4);
 
-			Point centroid = { 
+			Point centroid = {
 				static_cast<int>(abs(static_cast<float>(current_size.width) / 2)),
 				static_cast<int>(abs(static_cast<float>(current_size.height) / 2))
 			};
 
-			float distance_threshold = (current_size.width + current_size.height) * 0.015f;
+			float distance_threshold = (current_size.width + current_size.height) * 0.025f;
 
 			auto calculate_triangle = [&centroid, &current_size, &polygon, &triangles, &distance_threshold, this](Point input_point)
 				{
@@ -196,7 +196,7 @@ namespace wk
 					float angle = line_angle(Line(p1, p2));
 
 					Line cutoff_bisector = Line(
-						input_point, 
+						input_point,
 						Point((int)ceil(intersect.x), (int)ceil(intersect.y))
 					);
 
@@ -209,12 +209,12 @@ namespace wk
 					triangles.push_back(cutoff);
 				};
 
-			Rect bounding_box = {0, 0, current_size.width, current_size.height };
+			Rect bounding_box = { 0, 0, current_size.width, current_size.height };
 
-			calculate_triangle(Point(0,						0));
-			calculate_triangle(Point(current_size.width,	0));
-			calculate_triangle(Point(current_size.width,	current_size.height));
-			calculate_triangle(Point(0,						current_size.height));
+			calculate_triangle(Point(0, 0));
+			calculate_triangle(Point(current_size.width, 0));
+			calculate_triangle(Point(current_size.width, current_size.height));
+			calculate_triangle(Point(0, current_size.height));
 
 			if (triangles.empty())
 			{
@@ -231,10 +231,10 @@ namespace wk
 				// Polygon
 				PathD subject;
 				subject.reserve(4);
-				subject.emplace_back(0,						0);
-				subject.emplace_back(current_size.width,	0);
-				subject.emplace_back(current_size.width,	current_size.height);
-				subject.emplace_back(0,						current_size.height);
+				subject.emplace_back(0, 0);
+				subject.emplace_back(current_size.width, 0);
+				subject.emplace_back(current_size.width, current_size.height);
+				subject.emplace_back(0, current_size.height);
 
 				// Triangles
 				clip.reserve(triangles.size());
@@ -618,8 +618,8 @@ namespace wk
 
 			for (std::vector<cv::Point>& points : contours) {
 				std::move(points.begin(), points.end(), std::back_inserter(result));
+			}
 		}
-	}
 
 		void Item::normalize_mask(cv::Mat& mask)
 		{
@@ -640,44 +640,5 @@ namespace wk
 				}
 			}
 		}
-
-		//void Item::extrude_points(cv::Mat& src, Container<cv::Point>& points)
-		//{
-		//	using namespace cv;
-		//
-		//	const uint16_t offsetX = (uint16_t)PercentOf(src.cols, 5);
-		//	const uint16_t offsetY = (uint16_t)PercentOf(src.rows, 5);
-		//
-		//	const int centerW = (int)ceil(src.cols / 2);
-		//	const int centerH = (int)ceil(src.rows / 2);
-		//
-		//	for (cv::Point& point : points) {
-		//		bool is_edge_point = (point.x == 0 || point.x == src.cols) && (point.y == 0 || point.y == src.rows);
-		//
-		//		if (!is_edge_point) {
-		//			int x = point.x - centerW;
-		//			int y = point.y - centerH;
-		//
-		//			if (x >= 0) {
-		//				x += offsetX;
-		//			}
-		//			else {
-		//				x -= offsetX;
-		//			}
-		//
-		//			if (y >= 0) {
-		//				y += offsetY;
-		//			}
-		//			else {
-		//				y -= offsetY;
-		//			}
-		//
-		//			point = {
-		//				std::clamp(x + centerW, 0, src.cols),
-		//				std::clamp(y + centerH, 0, src.rows),
-		//			};
-		//		}
-		//	}
-		//}
 	}
 }
