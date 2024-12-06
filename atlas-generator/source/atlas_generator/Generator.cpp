@@ -1,8 +1,6 @@
 #include "Generator.h"
 #include "limits.h"
 
-#include <libnest2d/libnest2d.hpp>
-
 namespace wk
 {
 	namespace AtlasGenerator
@@ -11,149 +9,12 @@ namespace wk
 		{
 		}
 
-		size_t Generator::generate(Container<Item>& items)
-		{
-			if (items.empty()) return 0;
-
-			m_item_counter = 0;
-			m_duplicate_item_counter = 0;
-
-			std::map<int, size_t, std::greater<int>> texture_variants;
-			for (size_t i = 0; items.size() > i; i++)
-			{
-				Item& item = items[i];
-
-				if (!Generator::validate_image(item.image()))
-				{
-					throw PackagingException(PackagingException::Reason::UnsupportedImage, i);
-				}
-
-				texture_variants[item.image().type()]++;
-			}
-
-			if (texture_variants.size() == 1)
-			{
-				int type = items[0].image().type();
-
-				// iterate just by items vector
-				auto it = ItemIterator<size_t>(0, items.size());
-				return generate(items, it, type);
-			}
-
-			size_t bin_count = 0;
-			for (auto it = texture_variants.begin(); it != texture_variants.end(); ++it)
-			{
-				int type = it->first;
-				Container<size_t> item_indices;
-				item_indices.reserve(it->second);
-
-				for (size_t i = 0; items.size() > i; i++)
-				{
-					Item& item = items[i];
-					if (item.image().type() == type)
-					{
-						item_indices.push_back(i);
-					}
-				}
-
-				m_items.reserve(item_indices.size());
-				m_duplicate_indices.reserve(item_indices.size());
-
-				// iterate only by current type items
-				auto item_it = ItemIterator<size_t>(0, item_indices.size(), item_indices);
-				bin_count += generate(items, item_it, type);
-			}
-
-			return bin_count;
-		}
-
-		size_t Generator::generate(Container<Item>& items, ItemIterator<size_t>& item_iterator, int type)
-		{
-			Container<size_t> inverse_duplicate_indices;
-			inverse_duplicate_indices.reserve(items.size());
-
-			for (auto it = item_iterator.begin(); it != item_iterator.end(); ++it)
-			{
-				const size_t i = *it;
-				Item& item = items[i];
-
-				// Searching for duplicates
-				{
-					size_t item_index = SIZE_MAX;
-					for (size_t j = 0; m_items.size() > j; j++)
-					{
-						if (m_items[j].get() == item)
-						{
-							item_index = j;
-							m_duplicate_item_counter++;
-							break;
-						}
-					}
-					m_duplicate_indices.push_back(item_index);
-					if (item_index != SIZE_MAX) continue;
-				}
-				inverse_duplicate_indices.push_back(i);
-				m_items.push_back(item);
-			}
-
-			libnest2d::__parallel::enumerate(
-				m_items.begin(), m_items.end(), [&](Item& item, size_t n)
-				{
-					if (item.status() == Item::Status::Unset)
-					{
-						item.generate_image_polygon(m_config);
-					}
-				}, m_config.parallel()
-					);
-
-			for (size_t i = 0; m_items.size() > i; i++)
-			{
-				Item& item = m_items[i];
-
-				if (item.vertices.empty())
-				{
-					throw PackagingException(PackagingException::Reason::InvalidPolygon, inverse_duplicate_indices[i]);
-				}
-
-				if (item.width() > m_config.width() || item.height() > m_config.height())
-				{
-					throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
-				}
-			}
-
-			size_t current_atlas_count = m_atlases.size();
-			if (!pack_items(type))
-			{
-				throw PackagingException(PackagingException::Reason::Unknown);
-			};
-
-			for (size_t i = 0; items.size() > i; i++)
-			{
-				size_t item_index = m_duplicate_indices[i];
-
-				if (item_index != SIZE_MAX)
-				{
-					const Item& source = m_items[item_index];
-					Item& destination = items[i];
-
-					destination.texture_index = source.texture_index;
-					destination.vertices = source.vertices;
-					destination.transform = source.transform;
-				}
-			}
-
-			m_duplicate_indices.clear();
-			m_items.clear();
-
-			return m_atlases.size() - current_atlas_count;
-		}
-
 		cv::Mat& Generator::get_atlas(uint8_t atlas)
 		{
 			return m_atlases[atlas];
 		}
 
-		bool Generator::validate_image(cv::Mat& image)
+		bool Generator::validate_image(const cv::Mat& image)
 		{
 			if (1 > image.rows || 1 > image.cols)
 			{
@@ -195,6 +56,7 @@ namespace wk
 			cfg.placer_config.alignment = libnest2d::NestConfig<>::Placement::Alignment::DONT_ALIGN;
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 			cfg.placer_config.parallel = m_config.parallel();
+			cfg.placer_config.accuracy = 0.5;
 
 			libnest2d::NestControl control;
 			if (m_config.progress)
@@ -222,7 +84,7 @@ namespace wk
 					return false;
 				};
 
-				auto& shape = item.transformedShape();
+				//auto& shape = item.transformedShape();
 				auto box = item.boundingBox();
 
 				cv::Size& size = sheet_size[item.binId()];

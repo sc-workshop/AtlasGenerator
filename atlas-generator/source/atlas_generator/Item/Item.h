@@ -58,8 +58,8 @@ namespace wk
 			};
 
 		public:
-			Item(cv::Mat& image, bool sliced = false);
-			Item(cv::Scalar color);
+			Item(const cv::Mat& image, bool sliced = false);
+			Item(const cv::Scalar& color);
 			Item(std::filesystem::path path, bool sliced = false);
 
 			virtual ~Item() = default;
@@ -70,7 +70,7 @@ namespace wk
 			virtual uint16_t width() const;
 			virtual uint16_t height() const;
 
-			virtual cv::Mat& image();
+			virtual const cv::Mat& image() const;
 
 			// Generator Info
 		public:
@@ -108,7 +108,7 @@ namespace wk
 			) const;
 
 		public:
-			bool operator ==(Item& other);
+			bool operator ==(const Item& other) const;
 
 		private:
 			void image_preprocess(const Config& config);

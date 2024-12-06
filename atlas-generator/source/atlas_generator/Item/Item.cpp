@@ -14,11 +14,11 @@ namespace wk
 		{
 		}
 
-		Item::Item(cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
+		Item::Item(const cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
 		{
 		}
 
-		Item::Item(cv::Scalar color)
+		Item::Item(const cv::Scalar& color)
 		{
 			m_image = cv::Mat(1, 1, CV_8UC4, color);
 			m_colorfill = true;
@@ -35,7 +35,7 @@ namespace wk
 		uint16_t Item::width() const { return (uint16_t)m_image.cols; };
 		uint16_t Item::height() const { return (uint16_t)m_image.rows; };
 
-		cv::Mat& Item::image() { return m_image; };
+		const cv::Mat& Item::image() const { return m_image; };
 
 		bool Item::is_rectangle() const
 		{
@@ -517,7 +517,7 @@ namespace wk
 			}
 		}
 
-		bool Item::operator ==(Item& other)
+		bool Item::operator ==(const Item& other) const
 		{
 			using namespace cv;
 
