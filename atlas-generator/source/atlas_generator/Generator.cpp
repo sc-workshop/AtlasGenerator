@@ -126,6 +126,8 @@ namespace wk
 				item.transform.translation.x = (int32_t)libnest2d::getX(packer_item.translation()) - m_config.extrude();
 				item.transform.translation.y = (int32_t)libnest2d::getY(packer_item.translation()) - m_config.extrude();
 
+				cv::Mat& image = item.image_ref();
+
 				// Image Transform
 				if (rotation_degree != 0) {
 					cv::Point2f center((float)((item.width() - 1) / 2.0), (float)((item.height() - 1) / 2.0));
@@ -135,12 +137,11 @@ namespace wk
 					rot.at<double>(0, 2) += bbox.width / 2.0 - item.width() / 2.0;
 					rot.at<double>(1, 2) += bbox.height / 2.0 - item.height() / 2.0;
 
-					cv::warpAffine(item.image(), item.image(), rot, bbox.size(), cv::INTER_NEAREST);
+					cv::warpAffine(image, image, rot, bbox.size(), cv::INTER_NEAREST);
 				}
 
-				cv::copyMakeBorder(item.image(), item.image(), m_config.extrude(), m_config.extrude(), m_config.extrude(), m_config.extrude(), cv::BORDER_REPLICATE);
+				cv::copyMakeBorder(image, image, m_config.extrude(), m_config.extrude(), m_config.extrude(), m_config.extrude(), cv::BORDER_REPLICATE);
 
-				auto& image = item.image();
 				auto index = item.texture_index;
 				auto x = static_cast<uint16_t>(libnest2d::getX(box.minCorner()) - m_config.extrude() * 2);
 				auto y = static_cast<uint16_t>(libnest2d::getY(box.minCorner()) - m_config.extrude() * 2);

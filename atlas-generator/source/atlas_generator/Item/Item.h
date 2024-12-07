@@ -26,7 +26,7 @@ namespace wk
 		using Container = std::vector<T>;
 
 		// Interface that represents Atlas Sprite
-		class Item
+		class Item final
 		{
 		public:
 			class Transformation
@@ -58,19 +58,20 @@ namespace wk
 			};
 
 		public:
-			Item(const cv::Mat& image, bool sliced = false);
-			Item(const cv::Scalar& color);
+			Item(cv::Mat& image, bool sliced = false);
+			Item(cv::Scalar color);
 			Item(std::filesystem::path path, bool sliced = false);
 
-			virtual ~Item() = default;
+			~Item() = default;
 
 			// Image Info
 		public:
 			Status status() const;
-			virtual uint16_t width() const;
-			virtual uint16_t height() const;
+			uint16_t width() const;
+			uint16_t height() const;
 
-			virtual const cv::Mat& image() const;
+			const cv::Mat& image() const { return m_image; };
+			cv::Mat& image_ref() { return m_image; };
 
 			// Generator Info
 		public:
@@ -83,6 +84,7 @@ namespace wk
 		public:
 			bool is_rectangle() const;
 			bool is_sliced() const;
+			bool is_colorfill() const { return m_colorfill; };
 			std::optional< AtlasGenerator::Vertex> get_colorfill() const;
 
 		public:
@@ -90,7 +92,6 @@ namespace wk
 			Rect bound() const;
 			void generate_image_polygon(const Config& config);
 			bool mark_as_custom();
-
 
 		public:
 			// void get_sliced_area(

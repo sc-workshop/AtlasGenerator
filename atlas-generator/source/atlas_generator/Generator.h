@@ -112,10 +112,10 @@ namespace wk {
 						if (item_it != m_items.end())
 						{
 							item_index = std::distance(m_items.begin(), item_it);
+							m_duplicate_indices[i] = item_index;
 							m_duplicate_item_counter++;
 						}
 
-						m_duplicate_indices.push_back(item_index);
 						if (item_index != SIZE_MAX) continue;
 					}
 					inverse_duplicate_indices.push_back(i);
@@ -123,7 +123,7 @@ namespace wk {
 				}
 
 				libnest2d::__parallel::enumerate(
-					m_items.begin(), m_items.end(), [&](Item& item, size_t n)
+					m_items.begin(), m_items.end(), [&](Item& item, size_t)
 					{
 						if (item.status() == Item::Status::Unset)
 						{
@@ -153,19 +153,17 @@ namespace wk {
 					throw PackagingException(PackagingException::Reason::Unknown);
 				};
 
-				for (size_t i = 0; items.size() > i; i++)
+				for (auto iter = m_duplicate_indices.begin(); iter != m_duplicate_indices.end(); ++iter)
 				{
-					size_t item_index = m_duplicate_indices[i];
+					size_t desination_index = iter->first;
+					size_t source_index = iter->second;
 
-					if (item_index != SIZE_MAX)
-					{
-						const Item& source = m_items[item_index];
-						Item& destination = items[i];
+					Item& destination = items[desination_index];
+					Item& source = items[source_index];
 
-						destination.texture_index = source.texture_index;
-						destination.vertices = source.vertices;
-						destination.transform = source.transform;
-					}
+					destination.texture_index = source.texture_index;
+					destination.vertices = source.vertices;
+					destination.transform = source.transform;
 				}
 
 				m_duplicate_indices.clear();
@@ -177,7 +175,7 @@ namespace wk {
 			bool pack_items(int atlas_type);
 
 		public:
-			template<typename T, bool _has_alpha, int alpha_channel = -1>
+			template<typename T, bool has_alpha, int alpha_channel = -1>
 			void place_image_to(const cv::Mat& src, size_t atlas_index, uint16_t x, uint16_t y)
 			{
 				using namespace cv;
@@ -197,7 +195,6 @@ namespace wk {
 
 						T pixel = src.at<T>(h, w);
 
-						constexpr bool has_alpha = _has_alpha;
 						if (has_alpha && pixel[alpha_channel] == 0) {
 							continue;
 						}
@@ -212,7 +209,7 @@ namespace wk {
 			const Config m_config;
 
 			Container<std::reference_wrapper<Item>> m_items;
-			Container<size_t> m_duplicate_indices;
+			std::unordered_map<size_t, size_t> m_duplicate_indices;
 
 			Container<cv::Mat> m_atlases;
 

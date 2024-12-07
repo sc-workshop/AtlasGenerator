@@ -14,28 +14,26 @@ namespace wk
 		{
 		}
 
-		Item::Item(const cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
+		Item::Item(cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
 		{
 		}
 
-		Item::Item(const cv::Scalar& color)
+		Item::Item(cv::Scalar color) : m_colorfill(true)
 		{
 			m_image = cv::Mat(1, 1, CV_8UC4, color);
-			m_colorfill = true;
 		}
 
 #ifdef ATLAS_GENERATOR_WITH_IMAGE_CODECS
-		Item::Item(std::filesystem::path path, bool sliced) : m_sliced(sliced)
+		Item::Item(std::filesystem::path path, bool sliced) : 
+			m_sliced(sliced)
 		{
 			m_image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
 		}
 #endif
 
 		Item::Status Item::status() const { return m_status; }
-		uint16_t Item::width() const { return (uint16_t)m_image.cols; };
-		uint16_t Item::height() const { return (uint16_t)m_image.rows; };
-
-		const cv::Mat& Item::image() const { return m_image; };
+		uint16_t Item::width() const { return (uint16_t)image().cols; };
+		uint16_t Item::height() const { return (uint16_t)image().rows; };
 
 		bool Item::is_rectangle() const
 		{
@@ -138,7 +136,7 @@ namespace wk
 				get_image_contour(alpha_mask, contour);
 
 				// Contour area length
-				double area = arcLength(contour, true);
+				//double area = arcLength(contour, true);
 
 				// Simplify contour just a bit for better results
 				//approxPolyDP(contour, contour, 0.0009 * area, true);
@@ -280,8 +278,8 @@ namespace wk
 				{
 					int32_t x = (int32_t)std::ceil((point.x + crop_bound.x) * scale_factor);
 					int32_t y = (int32_t)std::ceil((point.y + crop_bound.y) * scale_factor);
-					uint16_t u = point.x;
-					uint16_t v = point.y;
+					uint16_t u = (uint16_t)point.x;
+					uint16_t v = (uint16_t)point.y;
 
 					vertices.emplace_back(x, y, u, v);
 				}
