@@ -4,6 +4,7 @@
 #include <fstream>
 #include <vector>
 #include <filesystem>
+#include <core/time/timer.h>
 namespace fs = std::filesystem;
 
 #include "atlas_generator/PackagingException.h"
@@ -273,32 +274,38 @@ void process(ProgramOptions& options)
 		std::cout << std::string(100, '\b') << count + 1 << "\\" << items.size() << std::flush;
 	};
 
-	std::cout << "0\\" << items.size();
-	AtlasGenerator::Generator generator(config);
 	size_t bin_count = 0;
-	try
+	AtlasGenerator::Generator generator(config);
 	{
-		bin_count = generator.generate(items);
-		std::cout << std::endl;
-	}
-	catch (const AtlasGenerator::PackagingException& exception)
-	{
-		std::cout << std::endl;
-		size_t item_index = exception.index();
-		if (item_index == SIZE_MAX)
+		Timer timer;
+		std::cout << "0\\" << items.size();
+		try
 		{
-			std::cout << "Unknown package exception" << std::endl;
+			bin_count = generator.generate(items);
+			std::cout << std::endl;
 		}
-		else
+		catch (const AtlasGenerator::PackagingException& exception)
 		{
-			std::cout << "Failed to package item \"" << options.files[item_index] << "\"" << std::endl;
+			std::cout << std::endl;
+			size_t item_index = exception.index();
+			if (item_index == SIZE_MAX)
+			{
+				std::cout << "Unknown package exception" << std::endl;
+			}
+			else
+			{
+				std::cout << "Failed to package item \"" << options.files[item_index] << "\"" << std::endl;
+			}
+			std::cout << exception.what() << std::endl;
+			return;
 		}
-		std::cout << exception.what() << std::endl;
-	}
-	catch (const std::exception& exception)
-	{
-		std::cout << std::endl;
-		std::cout << exception.what() << std::endl;
+		catch (const std::exception& exception)
+		{
+			std::cout << std::endl;
+			std::cout << exception.what() << std::endl;
+			return;
+		}
+		print("Packaging done by " << timer.elapsed() / 1000 << "s");
 	}
 
 	for (uint8_t i = 0; bin_count > i; i++)
