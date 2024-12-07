@@ -1,6 +1,8 @@
 #include "Generator.h"
 #include "limits.h"
 
+#include <libnest2d/libnest2d.hpp>
+
 namespace wk
 {
 	namespace AtlasGenerator

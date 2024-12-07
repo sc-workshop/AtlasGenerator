@@ -11,8 +11,7 @@
 #include "Item/Item.h"
 #include "PackagingException.h"
 #include "Item/Iterator.h"
-
-#include <libnest2d/libnest2d.hpp>
+#include "core/parallel/enumerate.h"
 
 namespace wk {
 	namespace AtlasGenerator
@@ -122,14 +121,14 @@ namespace wk {
 					m_items.push_back(item);
 				}
 
-				libnest2d::__parallel::enumerate(
+				parallel::enumerate(
 					m_items.begin(), m_items.end(), [&](Item& item, size_t)
 					{
 						if (item.status() == Item::Status::Unset)
 						{
 							item.generate_image_polygon(m_config);
 						}
-					}, m_config.parallel()
+					}
 				);
 
 				for (size_t i = 0; m_items.size() > i; i++)
