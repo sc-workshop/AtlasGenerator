@@ -57,6 +57,7 @@ namespace wk
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 			cfg.placer_config.parallel = m_config.parallel();
 			cfg.placer_config.accuracy = 0.5;
+			cfg.selector_config.verify_items = false;
 
 			libnest2d::NestControl control;
 			if (m_config.progress)
