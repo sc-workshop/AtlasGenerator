@@ -41,7 +41,7 @@ namespace wk
 			for (const Item& item : m_items)
 			{
 				libnest2d::Item& packer_item = packer_items.emplace_back(
-					std::vector<ClipperLib::IntPoint>(item.vertices.size() + 1)
+					std::vector<libnest2d::Point>(item.vertices.size() + 1)
 				);
 
 				for (uint16_t i = 0; packer_item.vertexCount() > i; i++) {
