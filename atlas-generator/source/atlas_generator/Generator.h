@@ -107,7 +107,7 @@ namespace wk {
 								return item == other;
 							}
 						);
-
+						
 						if (item_it != m_items.end())
 						{
 							item_index = std::distance(m_items.begin(), item_it);
@@ -122,8 +122,9 @@ namespace wk {
 				}
 
 				parallel::enumerate(
-					m_items.begin(), m_items.end(), [&](Item& item, size_t)
+					m_items.begin(), m_items.end(), [&](std::reference_wrapper<Item>& item_ref, size_t)
 					{
+						Item& item = item_ref;
 						if (item.status() == Item::Status::Unset)
 						{
 							item.generate_image_polygon(m_config);
@@ -158,7 +159,7 @@ namespace wk {
 					size_t source_index = iter->second;
 
 					Item& destination = items[desination_index];
-					Item& source = items[source_index];
+					Item& source = m_items[source_index];
 
 					destination.texture_index = source.texture_index;
 					destination.vertices = source.vertices;

@@ -24,7 +24,7 @@ namespace wk
 		}
 
 #ifdef ATLAS_GENERATOR_WITH_IMAGE_CODECS
-		Item::Item(std::filesystem::path path, bool sliced) : 
+		Item::Item(std::filesystem::path path, bool sliced) :
 			m_sliced(sliced)
 		{
 			m_image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
@@ -70,37 +70,8 @@ namespace wk
 
 			float scale_factor = is_sliced() ? 1.0f : config.scale();
 			Size full_size(m_image.cols, m_image.rows);
-
-			image_preprocess(config);
-
-			Mat alpha_mask;
-			switch (m_image.channels())
-			{
-			case 4:
-				extractChannel(m_image, alpha_mask, 3);
-				break;
-			case 2:
-				extractChannel(m_image, alpha_mask, 1);
-				break;
-			default:
-				alpha_mask = Mat(m_image.size(), CV_8UC1, Scalar(255));
-				break;
-			}
-
-			cv::Rect crop_bound = boundingRect(alpha_mask);
-			if (crop_bound.width <= 0) crop_bound.width = 1;
-			if (crop_bound.height <= 0) crop_bound.height = 1;
-
-			// Image cropping by alpha
-			m_image = m_image(crop_bound);
-			alpha_mask = alpha_mask(crop_bound);
-
-			Size current_size = alpha_mask.size();
-
-			PointF crop_offset(
-				crop_bound.x * scale_factor,
-				crop_bound.y * scale_factor
-			);
+			PointF crop_offset(0.0f, 0.0f);
+			Size current_size = full_size;
 
 			auto fallback_rectangle = [this, &crop_offset, &full_size, &current_size]
 				{
@@ -118,6 +89,41 @@ namespace wk
 
 					m_status = Status::Valid;
 				};
+			image_preprocess(config);
+
+			if (1 >= width() || 1 >= height())
+			{
+				fallback_rectangle();
+				return;
+			}
+
+			Mat alpha_mask;
+			switch (m_image.channels())
+			{
+			case 4:
+				extractChannel(m_image, alpha_mask, 3);
+				break;
+			case 2:
+				extractChannel(m_image, alpha_mask, 1);
+				break;
+			default:
+				fallback_rectangle();
+				return;
+			}
+
+			cv::Rect crop_bound = boundingRect(alpha_mask);
+			if (crop_bound.width <= 0) crop_bound.width = 1;
+			if (crop_bound.height <= 0) crop_bound.height = 1;
+
+			// Image cropping by alpha
+			m_image = m_image(crop_bound);
+			alpha_mask = alpha_mask(crop_bound);
+
+			current_size = alpha_mask.size();
+			crop_offset = PointF(
+				crop_bound.x * scale_factor,
+				crop_bound.y * scale_factor
+			);
 
 			if (is_rectangle()) {
 				fallback_rectangle();
@@ -250,22 +256,22 @@ namespace wk
 
 				if (solution.size() != 1)
 				{
-					// for (size_t i = 0; solution.size() > i; i++)
-					// {
-					// 	PathD& path = solution[i];
-					// 	std::vector<cv::Point> points;
-					// 	for (auto& point : path)
-					// 	{
-					// 		points.emplace_back(point.x, point.y);
-					// 	}
-					// 
-					// 	ShowContour(m_image, points);
-					// 
-					// 	for (auto& triangle : triangles)
-					// 	{
-					// 		ShowContour(m_image, Container<Point>{ triangle.p1, triangle.p2, triangle.p3 });
-					// 	}
-					// }
+					//for (size_t i = 0; solution.size() > i; i++)
+					//{
+					//	PathD& path = solution[i];
+					//	std::vector<cv::Point> points;
+					//	for (auto& point : path)
+					//	{
+					//		points.emplace_back(point.x, point.y);
+					//	}
+					//
+					//	ShowContour(m_image, points);
+					//
+					//	for (auto& triangle : triangles)
+					//	{
+					//		ShowContour(m_image, Container<Point>{ triangle.p1, triangle.p2, triangle.p3 });
+					//	}
+					//}
 
 					assert(0);
 					fallback_rectangle();
@@ -617,6 +623,8 @@ namespace wk
 			for (std::vector<cv::Point>& points : contours) {
 				std::move(points.begin(), points.end(), std::back_inserter(result));
 			}
+
+			//ShowContour(m_image, result);
 		}
 
 		void Item::normalize_mask(cv::Mat& mask)
@@ -626,17 +634,23 @@ namespace wk
 			// Pixel Normalize
 			for (uint16_t h = 0; mask.cols > h; h++) {
 				for (uint16_t w = 0; mask.rows > w; w++) {
-					uchar* pixel = mask.ptr() + (h * w);
+					uchar& pixel = mask.at<uchar>(w, h);
 
-					if (*pixel >= 1) {
-						*pixel = 255;
+					if (pixel >= 2) {
+						pixel = 255;
 					}
 					else
 					{
-						*pixel = 0;
+						pixel = 0;
 					};
 				}
 			}
+
+			const int size = 1;
+			cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS,
+				cv::Size(2 * size + 1, 2 * size + 1),
+				cv::Point(size, size));
+			cv::dilate(mask, mask, element);
 		}
 	}
 }
