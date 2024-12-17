@@ -117,7 +117,7 @@ namespace wk
 
 			void get_image_contour(cv::Mat& image, Container<cv::Point>& result);
 
-			void normalize_mask(cv::Mat& mask);
+			void normalize_mask(cv::Mat& mask, const Config& config);
 
 		protected:
 			Status m_status = Status::Unset;

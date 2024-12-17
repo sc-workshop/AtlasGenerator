@@ -195,7 +195,7 @@ namespace wk {
 
 						T pixel = src.at<T>(h, w);
 
-						if (has_alpha && pixel[alpha_channel] == 0) {
+						if (has_alpha && m_config.alpha_threshold() > pixel[alpha_channel]) {
 							continue;
 						}
 

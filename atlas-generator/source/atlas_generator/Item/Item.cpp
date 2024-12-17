@@ -134,7 +134,7 @@ namespace wk
 				vertices.reserve(8);
 			}
 
-			normalize_mask(alpha_mask);
+			normalize_mask(alpha_mask, config);
 
 			Container<Point> polygon;
 			{
@@ -627,7 +627,7 @@ namespace wk
 			//ShowContour(m_image, result);
 		}
 
-		void Item::normalize_mask(cv::Mat& mask)
+		void Item::normalize_mask(cv::Mat& mask, const Config& config)
 		{
 			using namespace cv;
 
@@ -636,7 +636,7 @@ namespace wk
 				for (uint16_t w = 0; mask.rows > w; w++) {
 					uchar& pixel = mask.at<uchar>(w, h);
 
-					if (pixel >= 2) {
+					if (pixel > config.alpha_threshold()) {
 						pixel = 255;
 					}
 					else
