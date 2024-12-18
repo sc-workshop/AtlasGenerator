@@ -90,22 +90,15 @@ namespace wk
 		public:
 			// XY coords bound
 			Rect bound() const;
+			RectUV bound_uv() const;
 			void generate_image_polygon(const Config& config);
 			bool mark_as_custom();
 
 		public:
-			// void get_sliced_area(
-			// 	SlicedArea area,
-			// 	const Rect& guide,
-			// 	Rect& xy,
-			// 	RectUV& uv,
-			// 	const Transformation xy_transform = Transformation()
-			// ) const;
-
-			void get_sliced_regions(
+			void get_9slice(
 				const Rect& guide,
-				const Transformation xy_transform,
-				Container<Container<Vertex>>& result
+				Container<Container<Vertex>>& vertices,
+				const Transformation xy_transform = Transformation()
 			) const;
 
 		public:

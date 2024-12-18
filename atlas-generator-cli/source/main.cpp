@@ -199,7 +199,7 @@ void process(ProgramOptions& options)
 	items.reserve(options.files.size());
 
 	std::map<size_t, Rect> guides;
-	std::map<size_t, AtlasGenerator::Item::Transformation> guide_transform;
+	std::map<size_t, AtlasGenerator::Item::Transformation> guide_transforms;
 
 	for (fs::path& path : options.files)
 	{
@@ -258,11 +258,21 @@ void process(ProgramOptions& options)
 				Point(-(item.width() / 2), -(item.height() / 2))
 			);
 
-			guide_transform[items.size()] = transform;
+			guide_transforms[items.size()] = transform;
 
 			items.push_back(item);
 		}
 	}
+
+	std::vector<cv::Mat> original_images;
+	if (options.is_item_debug)
+	{
+		for (Item& item : items)
+		{
+			original_images.emplace_back(item.image());
+		}
+	}
+
 	uint8_t scale_factor = 1;
 	AtlasGenerator::Config config(
 		4096, 4096,
@@ -382,11 +392,13 @@ void process(ProgramOptions& options)
 
 		for (size_t i = 0; items.size() > i; i++) {
 			AtlasGenerator::Item& item = items[i];
+			Item::Transformation& transform = item.transform;
 			std::vector<cv::Point> atlas_contour;
 			std::vector<cv::Point> item_contour;
+			fs::path& path = options.files[i];
 
 			for (AtlasGenerator::Vertex vertex : item.vertices) {
-				item.transform.transform_point(vertex.uv);
+				transform.transform_point(vertex.uv);
 
 				atlas_contour.push_back(cv::Point(vertex.uv.x, vertex.uv.y));
 				item_contour.push_back(cv::Point(vertex.xy.x, vertex.xy.y));
@@ -399,77 +411,73 @@ void process(ProgramOptions& options)
 
 			if (options.is_item_debug)
 			{
-				cv::Mat image_contour(item.image().size(), CV_8UC4, cv::Scalar(0));
+				cv::Mat image = original_images[i];
+
+				cv::Mat image_contour(image.size(), CV_8UC4, cv::Scalar(0));
 				{
 					cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 					fillPoly(image_contour, item_contour, color);
 				}
 
 				std::vector<cv::Mat> matrices = {
-					image_contour, item.image()
+					image_contour, image
 				};
 
 				if (item.is_sliced())
 				{
-					cv::Mat sliced_image(item.image().size(), CV_8UC4, cv::Scalar(0));
+					cv::Mat sliced_image(image.size(), CV_8UC4, cv::Scalar(0));
 					Container<Container<Vertex>> regions;
-					item.get_sliced_regions(
+					Item::Transformation& guide_transform = guide_transforms[i];
+
+					item.get_9slice(
 						guides[i],
-						guide_transform[i],
-						regions
+						regions,
+						guide_transform
 					);
 
-					// for (uint8_t area_index = (uint8_t)AtlasGenerator::Item::SlicedArea::BottomLeft; (uint8_t)AtlasGenerator::Item::SlicedArea::TopRight >= area_index; area_index++)
-					// {
-					// 	Rect xy;
-					// 	RectUV uv;
-					// 
-					// 	item.get_sliced_area(
-					// 		(AtlasGenerator::Item::SlicedArea)area_index,
-					// 		guides[i],
-					// 		xy, uv,
-					// 		guide_transform[i]
-					// 	);
-					// 
-					// 	if (xy.width > 0 && xy.height > 0)
-					// 	{
-					// 		{
-					// 			cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-					// 
-					// 			auto points = std::vector<cv::Point>{
-					// 					cv::Point(xy.x - guide_transform[i].translation.x, xy.y - guide_transform[i].translation.y),
-					// 					cv::Point((xy.x - guide_transform[i].translation.x) + xy.width, xy.y - guide_transform[i].translation.y),
-					// 					cv::Point((xy.x - guide_transform[i].translation.x) + xy.width, (xy.y - guide_transform[i].translation.y) + xy.height),
-					// 					cv::Point(xy.x - guide_transform[i].translation.x, (xy.y - guide_transform[i].translation.y) + xy.height),
-					// 			};
-					// 			fillPoly(
-					// 				sliced_image,
-					// 				points,
-					// 				color
-					// 			);
-					// 		}
-					// 
-					// 		{
-					// 			auto points = std::vector<cv::Point>{
-					// 					cv::Point(uv.x, uv.y),
-					// 					cv::Point(uv.x + uv.width, uv.y),
-					// 					cv::Point(uv.x + uv.width, uv.y + uv.height),
-					// 					cv::Point(uv.x, uv.y + uv.height)
-					// 			};
-					// 
-					// 			cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-					// 			fillPoly(sheets[item.texture_index], points, color);
-					// 		}
-					// 	}
-					// }
+					for (const Container<Vertex>& region : regions)
+					{
+						cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+
+						{
+							std::vector<cv::Point> points;
+							for (const Vertex& vertex : region)
+							{
+								points.emplace_back(vertex.xy.x - guide_transform.translation.x, vertex.xy.y - guide_transform.translation.y);
+							}
+
+							fillPoly(
+								sliced_image,
+								points,
+								color
+							);
+						}
+
+						{
+							std::vector<cv::Point> points;
+							for (Vertex vertex : region)
+							{
+								transform.transform_point(vertex.uv);
+								points.emplace_back(vertex.uv.x, vertex.uv.y);
+							}
+					 
+					 		cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+					 		fillPoly(sheets[item.texture_index], points, color);
+						}
+					}
+
 					matrices.push_back(sliced_image);
 				}
+				else
+				{
+					continue;
+				}
 
-				// {
-				// 	cv::Mat canvas;
-				// 	cv::hconcat(matrices, canvas);
-				// 	ShowImage("Item", canvas);
-				// }
+				{
+					cv::Mat canvas;
+					cv::hconcat(matrices, canvas);
+					ShowImage(path.string(), canvas);
+				}
 			}
 		}
 

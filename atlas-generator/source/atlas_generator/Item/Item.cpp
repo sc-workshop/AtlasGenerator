@@ -77,15 +77,15 @@ namespace wk
 				{
 					vertices.resize(4);
 
-					vertices[0].uv = { 0,										0 };
-					vertices[1].uv = { 0,										(uint16_t)current_size.height };
-					vertices[2].uv = { (uint16_t)current_size.width,					(uint16_t)current_size.height };
-					vertices[3].uv = { (uint16_t)current_size.width,					0 };
+					vertices[3].uv = { 0,												0 };
+					vertices[2].uv = { 0,												(uint16_t)current_size.height };
+					vertices[1].uv = { (uint16_t)current_size.width,					(uint16_t)current_size.height };
+					vertices[0].uv = { (uint16_t)current_size.width,					0 };
 
-					vertices[0].xy = { (uint16_t)crop_offset.x,						(uint16_t)crop_offset.y };
-					vertices[1].xy = { (uint16_t)crop_offset.x,						(uint16_t)(crop_offset.y + full_size.height) };
-					vertices[2].xy = { (uint16_t)(crop_offset.x + full_size.width),		(uint16_t)(crop_offset.y + full_size.height) };
-					vertices[3].xy = { (uint16_t)(crop_offset.x + full_size.width),		(uint16_t)crop_offset.y };
+					vertices[3].xy = { (uint16_t)crop_offset.x,								(uint16_t)crop_offset.y };
+					vertices[2].xy = { (uint16_t)crop_offset.x,								(uint16_t)(crop_offset.y + current_size.height) };
+					vertices[1].xy = { (uint16_t)(crop_offset.x + current_size.width),		(uint16_t)(crop_offset.y + current_size.height) };
+					vertices[0].xy = { (uint16_t)(crop_offset.x + current_size.width),		(uint16_t)crop_offset.y };
 
 					m_status = Status::Valid;
 				};
@@ -110,7 +110,7 @@ namespace wk
 				fallback_rectangle();
 				return;
 			}
-
+			
 			cv::Rect crop_bound = boundingRect(alpha_mask);
 			if (crop_bound.width <= 0) crop_bound.width = 1;
 			if (crop_bound.height <= 0) crop_bound.height = 1;
@@ -189,7 +189,7 @@ namespace wk
 
 					// Skip processing if distance between corner and intersect point is too smol
 					{
-						float distance = dist(input_point, intersect);// std::hypot(p1.x - p2.x, p1.y - p2.y);
+						float distance = dist(input_point, intersect);
 
 						if (distance_threshold > distance)
 						{
@@ -256,22 +256,24 @@ namespace wk
 
 				if (solution.size() != 1)
 				{
-					//for (size_t i = 0; solution.size() > i; i++)
-					//{
-					//	PathD& path = solution[i];
-					//	std::vector<cv::Point> points;
-					//	for (auto& point : path)
-					//	{
-					//		points.emplace_back(point.x, point.y);
-					//	}
-					//
-					//	ShowContour(m_image, points);
-					//
-					//	for (auto& triangle : triangles)
-					//	{
-					//		ShowContour(m_image, Container<Point>{ triangle.p1, triangle.p2, triangle.p3 });
-					//	}
-					//}
+#ifdef CV_DEBUG
+					for (size_t i = 0; solution.size() > i; i++)
+					{
+						PathD& path = solution[i];
+						std::vector<cv::Point> points;
+						for (auto& point : path)
+						{
+							points.emplace_back(point.x, point.y);
+						}
+					
+						ShowContour(m_image, points);
+					
+						for (auto& triangle : triangles)
+						{
+							ShowContour(m_image, Container<Point>{ triangle.p1, triangle.p2, triangle.p3 });
+						}
+					}
+#endif
 
 					assert(0);
 					fallback_rectangle();
@@ -303,7 +305,10 @@ namespace wk
 
 		Rect Item::bound() const
 		{
-			Rect result(INT_MAX, INT_MAX, 0, 0);
+			Rect result(
+				std::numeric_limits<int>::max(), 0, 
+				0, std::numeric_limits<int>::max()
+			);
 
 			for (const Vertex& vertex : vertices)
 			{
@@ -316,208 +321,119 @@ namespace wk
 			return result;
 		}
 
-		//void Item::get_sliced_area(Item::SlicedArea area, const Rect& guide, Rect& xy, RectUV& uv, const Transformation xy_transform) const
-		//{
-		//	if (!is_rectangle()) return;
-		//
-		//	// TODO: Move to separate builder class?
-		//	Rect xy_bound = bound();
-		//
-		//	Point xy_bottom_left_corner(xy_bound.left, xy_bound.bottom);
-		//	xy_transform.transform_point(xy_bottom_left_corner);
-		//
-		//	Point xy_top_right_corner(xy_bound.right, xy_bound.top);
-		//	xy_transform.transform_point(xy_top_right_corner);
-		//
-		//	Rect xy_rectangle(
-		//		xy_bottom_left_corner.x, xy_bottom_left_corner.y,
-		//		xy_top_right_corner.x, xy_top_right_corner.y
-		//	);
-		//
-		//	RectUV uv_rectangle(
-		//		vertices[0].uv.u, vertices[0].uv.v,
-		//		vertices[2].uv.u, vertices[2].uv.v
-		//	);
-		//
-		//	int16_t left_width_size = (int16_t)abs(guide.right - xy_rectangle.x);
-		//	int16_t top_height_size = (int16_t)abs(guide.top - xy_rectangle.height);
-		//	int16_t bottom_height_size = (int16_t)abs(guide.bottom - xy_rectangle.y);
-		//	int16_t middle_width_size = (int16_t)abs((guide.left - xy_rectangle.x) - left_width_size);
-		//	int16_t middle_height_size = (int16_t)abs(guide.top - (xy_rectangle.y + bottom_height_size));
-		//	int16_t right_width_size = (int16_t)abs(guide.left - xy_rectangle.width);
-		//
-		//	switch (area)
-		//	{
-		//	case Item::SlicedArea::BottomLeft:
-		//		if (guide.right < xy_rectangle.x || guide.bottom < xy_rectangle.y) return;
-		//
-		//		{
-		//			xy.x = xy_rectangle.x;
-		//			xy.y = xy_rectangle.y;
-		//
-		//			xy.width = left_width_size;
-		//			xy.height = bottom_height_size;
-		//		}
-		//
-		//		{
-		//			uv.x = uv_rectangle.x;
-		//			uv.y = uv_rectangle.y;
-		//		}
-		//		break;
-		//	case Item::SlicedArea::BottomMiddle:
-		//	{
-		//		xy.x = xy_rectangle.x + left_width_size;
-		//		xy.y = xy_rectangle.y;
-		//
-		//		xy.width = middle_width_size;
-		//		xy.height = bottom_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x + left_width_size;
-		//		uv.y = uv_rectangle.y;
-		//	}
-		//
-		//	break;
-		//	case Item::SlicedArea::BottomRight:
-		//	{
-		//		xy.x = guide.left;
-		//		xy.y = xy_rectangle.y;
-		//
-		//		xy.width = right_width_size;
-		//		xy.height = bottom_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x + left_width_size + middle_width_size;
-		//		uv.y = uv_rectangle.y;
-		//	}
-		//	break;
-		//	case Item::SlicedArea::MiddleLeft:
-		//	{
-		//		xy.x = xy_rectangle.x;
-		//		xy.y = xy_rectangle.y + bottom_height_size;
-		//
-		//		xy.width = left_width_size;
-		//		xy.height = middle_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x;
-		//		uv.y = uv_rectangle.y + bottom_height_size;
-		//	}
-		//	break;
-		//	case Item::SlicedArea::Center:
-		//	{
-		//		xy.x = xy_rectangle.x + left_width_size;
-		//		xy.y = xy_rectangle.y + bottom_height_size;
-		//
-		//		xy.width = middle_width_size;
-		//		xy.height = middle_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x + left_width_size;
-		//		uv.y = uv_rectangle.y + bottom_height_size;
-		//	}
-		//	break;
-		//	case Item::SlicedArea::MiddleRight:
-		//	{
-		//		xy.x = guide.left;
-		//		xy.y = xy_rectangle.y + bottom_height_size;
-		//
-		//		xy.width = right_width_size;
-		//		xy.height = middle_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x + left_width_size + middle_width_size;
-		//		uv.y = uv_rectangle.y + bottom_height_size;
-		//	}
-		//	break;
-		//	case Item::SlicedArea::TopLeft:
-		//	{
-		//		xy.x = xy_rectangle.x;
-		//		xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-		//
-		//		xy.width = left_width_size;
-		//		xy.height = top_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x;
-		//		uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-		//	}
-		//	break;
-		//	case Item::SlicedArea::TopMiddle:
-		//	{
-		//		xy.x = xy_rectangle.x + left_width_size;
-		//		xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-		//
-		//		xy.width = middle_width_size;
-		//		xy.height = top_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x + left_width_size;
-		//		uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-		//	}
-		//	break;
-		//	case Item::SlicedArea::TopRight:
-		//	{
-		//		xy.x = guide.left;
-		//		xy.y = xy_rectangle.y + bottom_height_size + middle_height_size;
-		//
-		//		xy.width = right_width_size;
-		//		xy.height = top_height_size;
-		//	}
-		//
-		//	{
-		//		uv.x = uv_rectangle.x + left_width_size + middle_width_size;
-		//		uv.y = uv_rectangle.y + bottom_height_size + middle_height_size;
-		//	}
-		//	break;
-		//	default:
-		//		break;
-		//	}
-		//
-		//	uv.width = (uint16_t)std::clamp<int32_t>(xy.width, 0i16, UINT16_MAX);
-		//	uv.height = (uint16_t)std::clamp<int32_t>(xy.height, 0i16, UINT16_MAX);
-		//}
-
-		void Item::get_sliced_regions(
-			const Rect& guide,
-			const Item::Transformation xy_transform,
-			Container<Container<Vertex>>& result
-		) const
+		RectUV Item::bound_uv() const
 		{
-			if (!is_rectangle()) return;
-			using namespace Clipper2Lib;
+			RectUV result(
+				std::numeric_limits<uint16_t>::max(), 0,
+				0, std::numeric_limits<uint16_t>::max()
+			);
 
-			PathsD clip, solution;
-
-			PathD subject;
-			subject.reserve(vertices.size());
 			for (const Vertex& vertex : vertices)
 			{
-				subject.emplace_back(
-					vertex.xy.x + xy_transform.translation.x,
-					vertex.xy.y + xy_transform.translation.y
-				);
+				result.left = std::min(result.left, vertex.uv.x);
+				result.bottom = std::min(result.bottom, vertex.uv.y);
+				result.right = std::max(result.right, vertex.uv.x);
+				result.top = std::max(result.top, vertex.uv.y);
 			}
 
-			const double min = -0xFFFFFF;
-			const double max = 0xFFFFFF;
-			clip.push_back({ PointD((const double)guide.left, min), PointD((const double)guide.left, max) });
-			clip.push_back({ PointD((const double)guide.right, min), PointD((const double)guide.right, max) });
-			clip.push_back({ PointD(min, (const double)guide.bottom), PointD(max, (const double)guide.bottom) });
-			clip.push_back({ PointD(min, (const double)guide.top), PointD(max, (const double)guide.top) });
+			return result;
+		}
 
-			solution = Intersect(PathsD({ subject }), clip, FillRule::NonZero);
+		void Item::get_9slice(
+			const Rect& guide,
+			Container<Container<Vertex>>& result,
+			const Transformation xy_transform
+		) const
+		{
+			using namespace Clipper2Lib;
 
-			for (size_t i = 0; solution.size() > i; i++)
+			if (!is_rectangle()) return;
+
+			Point offset;
+			Point size;
 			{
-				auto& path = solution[i];
+				Rect xy_bound = bound();
+
+				offset.x = xy_bound.left;
+				offset.y = xy_bound.bottom;
+				size.x = std::abs(xy_bound.left - xy_bound.right);
+				size.y = std::abs(xy_bound.top - xy_bound.bottom);
+			}
+
+			PointUV uv_size;
+			{
+				RectUV uv_bound = bound_uv();
+
+				uv_size.x = std::abs(uv_bound.left - uv_bound.right);
+				uv_size.y = std::abs(uv_bound.top - uv_bound.bottom);
+			}
+
+			PathsD result_solution;
+			{
+				PathD subject;
+
+				subject.reserve(vertices.size());
+				for (const Vertex& vertex : vertices)
+				{
+					subject.emplace_back(
+						vertex.xy.x + xy_transform.translation.x,
+						vertex.xy.y + xy_transform.translation.y
+					);
+				}
+
+				constexpr int min = std::numeric_limits<int>::min();
+				constexpr int max = std::numeric_limits<int>::max();
+
+				const Container<Rect> rects = {
+					{min, min, guide.left, guide.bottom},															// Left-Top
+					{min, guide.bottom, guide.left, guide.top},														// Top-Middle
+					{guide.left, guide.top, min, max},																// Right-Top
+					
+					{guide.left, min, guide.right, guide.bottom},													// Left-Middle
+					{guide.left, guide.bottom, guide.right, guide.top},												// Middle
+					{guide.left, guide.top, guide.right, max},														// Middle-bottom
+					
+					
+					{guide.right, guide.top, max, guide.bottom},													// Left-bottom
+					{guide.right, guide.top, max, max},																// Right-top
+					{guide.right, min, guide.left, guide.bottom}													// Middle-bottom
+				};
+
+				for (const Rect& rect : rects)
+				{
+					PathD path;
+
+					path.emplace_back(rect.bottom, rect.left);
+					path.emplace_back(rect.bottom, rect.right);
+					path.emplace_back(rect.top, rect.right);
+					path.emplace_back(rect.top, rect.left);
+
+					PathsD solution = Intersect({ subject }, { path }, FillRule::NonZero);
+					result_solution.insert(result_solution.end(), solution.begin(), solution.end());
+				}
+			}
+
+			for (PathD& path : result_solution)
+			{
+				Container<Vertex>& result_path = result.emplace_back();
+				for (const PointD& path_vertex : path)
+				{
+					Vertex& vertex = result_path.emplace_back();
+
+					vertex.xy.x = (int)path_vertex.x;
+					vertex.xy.y = (int)path_vertex.y;
+
+					// Remap xy to uv map
+
+					// normalize to 0.0...1.0 range
+					PointF uv_coord(
+						(path_vertex.x - offset.x) / size.x,
+						(path_vertex.y - offset.y) / size.y
+					);
+
+					vertex.uv.x = uv_coord.x * uv_size.x;
+					vertex.uv.y = uv_coord.y * uv_size.y;
+				}
 			}
 		}
 
