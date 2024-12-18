@@ -398,9 +398,10 @@ namespace wk
 					{guide.left, guide.top, guide.right, max},														// Middle-bottom
 					
 					
-					{guide.right, guide.top, max, guide.bottom},													// Left-bottom
-					{guide.right, guide.top, max, max},																// Right-top
-					{guide.right, min, guide.left, guide.bottom}													// Middle-bottom
+					{guide.right, guide.bottom, max, min },															// Left-bottom
+					{guide.right, guide.top, max, guide.bottom},													// Middle-bottom
+					{guide.right, guide.top, max, max},																// Right-bottom
+					
 				};
 
 				for (const Rect& rect : rects)
