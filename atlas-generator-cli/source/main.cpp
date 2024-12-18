@@ -468,10 +468,6 @@ void process(ProgramOptions& options)
 
 					matrices.push_back(sliced_image);
 				}
-				else
-				{
-					continue;
-				}
 
 				{
 					cv::Mat canvas;

@@ -353,6 +353,10 @@ namespace wk
 			Point size;
 			{
 				Rect xy_bound = bound();
+				xy_bound.left += xy_transform.translation.x;
+				xy_bound.right += xy_transform.translation.x;
+				xy_bound.bottom += xy_transform.translation.y;
+				xy_bound.top += xy_transform.translation.y;
 
 				offset.x = xy_bound.left;
 				offset.y = xy_bound.bottom;
