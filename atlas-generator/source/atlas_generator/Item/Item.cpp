@@ -143,6 +143,8 @@ namespace wk
 					Container<cv::Point> contour;
 					get_image_contour(alpha_mask, contour);
 
+					//ShowContour(alpha_mask, contour);
+
 					// Getting convex hull as base polygon for calculations
 					convexHull(contour, hull, true);
 				}
@@ -535,7 +537,7 @@ namespace wk
 					// Iterate over black pixels only
 					if (pixel > 1)
 					{
-						if (h == 0 || w == 0)
+						if (h == 0 || w == 0 || h == image.cols - 1 || w == image.rows - 1)
 						{
 							result.emplace_back(h, w);
 							continue;
