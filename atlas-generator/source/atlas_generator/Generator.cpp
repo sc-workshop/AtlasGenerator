@@ -11,7 +11,7 @@ namespace wk
 		{
 		}
 
-		cv::Mat& Generator::get_atlas(uint8_t atlas)
+		cv::Mat& Generator::get_atlas(size_t atlas)
 		{
 			return m_atlases[atlas];
 		}
@@ -58,7 +58,11 @@ namespace wk
 			cfg.placer_config.alignment = libnest2d::NestConfig<>::Placement::Alignment::DONT_ALIGN;
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 			cfg.placer_config.parallel = m_config.parallel();
-			cfg.placer_config.accuracy = 0.5;
+#ifdef WK_DEBUG
+			cfg.placer_config.accuracy = 0.0;
+#else
+			cfg.placer_config.accuracy = 0.6;
+#endif
 			cfg.selector_config.verify_items = false;
 			//cfg.selector_config.texture_parallel_hard = m_config.parallel();
 
