@@ -58,7 +58,7 @@ namespace wk
 			cfg.placer_config.alignment = libnest2d::NestConfig<>::Placement::Alignment::DONT_ALIGN;
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 			cfg.placer_config.parallel = m_config.parallel();
-#ifdef WK_DEBUG
+#if WK_DEBUG
 			cfg.placer_config.accuracy = 0.0;
 #else
 			cfg.placer_config.accuracy = 0.6;
