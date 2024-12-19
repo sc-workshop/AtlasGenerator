@@ -121,6 +121,12 @@ namespace wk {
 					m_items.push_back(item);
 				}
 
+				std::launch policy = std::launch::deferred;
+#ifndef WK_DEBUG
+				policy = | std::launch::async;
+#endif // WK_DEBUG
+
+
 				parallel::enumerate(
 					m_items.begin(), m_items.end(), [&](std::reference_wrapper<Item>& item_ref, size_t)
 					{
@@ -129,7 +135,7 @@ namespace wk {
 						{
 							item.generate_image_polygon(m_config);
 						}
-					}
+					}, policy
 				);
 
 				for (size_t i = 0; m_items.size() > i; i++)

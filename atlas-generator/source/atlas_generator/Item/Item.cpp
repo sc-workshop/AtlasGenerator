@@ -110,7 +110,7 @@ namespace wk
 				fallback_rectangle();
 				return;
 			}
-			
+
 			cv::Rect crop_bound = boundingRect(alpha_mask);
 			if (crop_bound.width <= 0) crop_bound.width = 1;
 			if (crop_bound.height <= 0) crop_bound.height = 1;
@@ -138,20 +138,16 @@ namespace wk
 
 			Container<Point> polygon;
 			{
-				Container<cv::Point> contour;
-				get_image_contour(alpha_mask, contour);
-
-				// Contour area length
-				//double area = arcLength(contour, true);
-
-				// Simplify contour just a bit for better results
-				//approxPolyDP(contour, contour, 0.0009 * area, true);
-
-				// Getting convex hull as base polygon for calculations
 				Container<cv::Point> hull;
-				convexHull(contour, hull, true);
+				{
+					Container<cv::Point> contour;
+					get_image_contour(alpha_mask, contour);
 
-				polygon.reserve(contour.size());
+					// Getting convex hull as base polygon for calculations
+					convexHull(contour, hull, true);
+				}
+
+				polygon.reserve(hull.size());
 				for (cv::Point& point : hull)
 				{
 					polygon.emplace_back(point.x, point.y);
@@ -175,8 +171,6 @@ namespace wk
 						PointF((float)centroid.x, (float)centroid.y)
 					);
 
-					//ShowContour(m_image, Container<Point>{ input_point, centroid });
-
 					auto intersection_result = line_intersect(polygon, ray);
 					if (!intersection_result.has_value()) return;
 
@@ -184,8 +178,6 @@ namespace wk
 
 					const Point& p1 = polygon[p1_idx];
 					const Point& p2 = polygon[p2_idx];
-
-					//ShowContour(m_image, Container<Point>{ p1, p2 });
 
 					// Skip processing if distance between corner and intersect point is too smol
 					{
@@ -205,10 +197,8 @@ namespace wk
 					);
 
 					Triangle cutoff = build_triangle(
-						cutoff_bisector, angle, current_size.width + current_size.height
+						cutoff_bisector, angle, (current_size.width + current_size.height) * 2
 					);
-
-					//ShowContour(m_image, Container<Point>{ cutoff.p1, cutoff.p2, cutoff.p3 });
 
 					triangles.push_back(cutoff);
 				};
@@ -265,9 +255,9 @@ namespace wk
 						{
 							points.emplace_back(point.x, point.y);
 						}
-					
+
 						ShowContour(m_image, points);
-					
+
 						for (auto& triangle : triangles)
 						{
 							ShowContour(m_image, Container<Point>{ triangle.p1, triangle.p2, triangle.p3 });
@@ -306,7 +296,7 @@ namespace wk
 		Rect Item::bound() const
 		{
 			Rect result(
-				std::numeric_limits<int>::max(), 0, 
+				std::numeric_limits<int>::max(), 0,
 				0, std::numeric_limits<int>::max()
 			);
 
@@ -392,16 +382,15 @@ namespace wk
 					{min, min, guide.left, guide.bottom},															// Left-Top
 					{min, guide.bottom, guide.left, guide.top},														// Top-Middle
 					{guide.left, guide.top, min, max},																// Right-Top
-					
+
 					{guide.left, min, guide.right, guide.bottom},													// Left-Middle
 					{guide.left, guide.bottom, guide.right, guide.top},												// Middle
 					{guide.left, guide.top, guide.right, max},														// Middle-bottom
-					
-					
+
 					{guide.right, guide.bottom, max, min },															// Left-bottom
 					{guide.right, guide.top, max, guide.bottom},													// Middle-bottom
 					{guide.right, guide.top, max, max},																// Right-bottom
-					
+
 				};
 
 				for (const Rect& rect : rects)
@@ -538,14 +527,52 @@ namespace wk
 
 		void Item::get_image_contour(cv::Mat& image, Container<cv::Point>& result)
 		{
-			Container<Container<cv::Point>> contours;
-			findContours(image, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+			for (uint16_t h = 0; image.cols > h; h++) {
+				for (uint16_t w = 0; image.rows > w; w++) {
+					uchar& pixel = image.at<uchar>(w, h);
+					bool valid = false;
 
-			for (std::vector<cv::Point>& points : contours) {
-				std::move(points.begin(), points.end(), std::back_inserter(result));
+					// Iterate over black pixels only
+					if (pixel > 1)
+					{
+						if (h == 0 || w == 0)
+						{
+							result.emplace_back(h, w);
+							continue;
+						}
+					}
+					else
+					{
+						continue;
+					};
+
+
+					bool has_positive = false;
+					bool has_negative = false;
+					for (int dy = -1; dy <= 1; dy++) {
+						for (int dx = -1; dx <= 1; dx++) {
+							int x = w + dy;
+							int y = h + dx;
+
+							if (dx == 0 && dy == 0) continue;
+							if (0 > x || 0 > y) continue;
+							if (x >= image.rows || y >= image.cols) continue;
+
+							uchar& neighbor = image.at<uchar>(x, y);
+
+							has_positive = has_positive || neighbor > 0;
+							has_negative = has_negative || neighbor == 0;
+						}
+					}
+
+					valid = has_negative && has_positive;
+					if (valid)
+					{
+						result.emplace_back(h, w);
+					}
+
+				}
 			}
-
-			//ShowContour(m_image, result);
 		}
 
 		void Item::normalize_mask(cv::Mat& mask, const Config& config)
@@ -567,7 +594,7 @@ namespace wk
 				}
 			}
 
-			const int size = 1;
+			const int size = 2;
 			cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS,
 				cv::Size(2 * size + 1, 2 * size + 1),
 				cv::Point(size, size));

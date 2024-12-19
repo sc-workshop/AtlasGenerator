@@ -121,10 +121,10 @@ void ShowImage(std::string name, cv::Mat& image) {
 }
 
 void ShowContour(cv::Mat& src, std::vector<cv::Point> points) {
-	const float scale_factor = 4.0f;
+	const float scale_factor = 8.0f;
 
 	cv::Mat drawing = src.clone();
-	cv::resize(drawing, drawing, cv::Size(), 4, 4);
+	cv::resize(drawing, drawing, cv::Size(), scale_factor, scale_factor, cv::INTER_NEAREST);
 
 	for (cv::Point& point : points)
 	{
