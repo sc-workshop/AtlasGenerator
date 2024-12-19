@@ -81,7 +81,7 @@ namespace wk {
 				return bin_count;
 			}
 
-			cv::Mat& get_atlas(uint8_t atlas);
+			cv::Mat& get_atlas(size_t atlas);
 
 		private:
 			using Iterator = ItemIterator<size_t>::iterator;
@@ -101,7 +101,7 @@ namespace wk {
 					{
 						size_t item_index = SIZE_MAX;
 
-						auto& item_it = std::find_if(std::execution::par_unseq, m_items.begin(), m_items.end(),
+						auto item_it = std::find_if(std::execution::par_unseq, m_items.begin(), m_items.end(),
 							[&item](const Item& other)
 							{
 								return item == other;
