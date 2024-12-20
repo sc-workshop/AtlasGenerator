@@ -60,6 +60,13 @@ namespace wk
 		bool Item::mark_as_custom()
 		{
 			m_status = Status::Valid;
+			mark_as_preprocessed();
+			return true;
+		}
+
+		bool Item::mark_as_preprocessed()
+		{
+			m_preprocessed = true;
 			return true;
 		}
 

@@ -93,6 +93,7 @@ namespace wk
 			RectUV bound_uv() const;
 			void generate_image_polygon(const Config& config);
 			bool mark_as_custom();
+			bool mark_as_preprocessed();
 
 		public:
 			void get_9slice(
