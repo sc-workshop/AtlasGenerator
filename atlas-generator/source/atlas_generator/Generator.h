@@ -122,9 +122,9 @@ namespace wk {
 				}
 
 				std::launch policy = std::launch::deferred;
-#ifndef WK_DEBUG
-				policy = | std::launch::async;
-#endif // WK_DEBUG
+#if !WK_DEBUG
+				policy |= std::launch::async;
+#endif // !WK_DEBUG
 
 
 				parallel::enumerate(
