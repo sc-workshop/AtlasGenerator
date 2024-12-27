@@ -14,11 +14,11 @@ namespace wk
 		{
 		}
 
-		Item::Item(cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
+		Item::Item(const cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
 		{
 		}
 
-		Item::Item(cv::Scalar color) : m_colorfill(true)
+		Item::Item(const cv::Scalar& color) : m_colorfill(true)
 		{
 			m_image = cv::Mat(1, 1, CV_8UC4, color);
 		}
@@ -367,8 +367,8 @@ namespace wk
 			{
 				RectUV uv_bound = bound_uv();
 
-				uv_size.x = std::abs(uv_bound.left - uv_bound.right);
-				uv_size.y = std::abs(uv_bound.top - uv_bound.bottom);
+				uv_size.x = (uint16_t)std::abs(uv_bound.left - uv_bound.right);
+				uv_size.y = (uint16_t)std::abs(uv_bound.top - uv_bound.bottom);
 			}
 
 			PathsD result_solution;
@@ -430,12 +430,12 @@ namespace wk
 
 					// normalize to 0.0...1.0 range
 					PointF uv_coord(
-						(path_vertex.x - offset.x) / size.x,
-						(path_vertex.y - offset.y) / size.y
+						(float)(path_vertex.x - offset.x) / size.x,
+						(float)(path_vertex.y - offset.y) / size.y
 					);
 
-					vertex.uv.x = uv_coord.x * uv_size.x;
-					vertex.uv.y = uv_coord.y * uv_size.y;
+					vertex.uv.x = (uint16_t)(uv_coord.x * uv_size.x);
+					vertex.uv.y = (uint16_t)(uv_coord.y * uv_size.y);
 				}
 			}
 		}

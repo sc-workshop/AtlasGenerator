@@ -58,8 +58,8 @@ namespace wk
 			};
 
 		public:
-			Item(cv::Mat& image, bool sliced = false);
-			Item(cv::Scalar color);
+			Item(const cv::Mat& image, bool sliced = false);
+			Item(const cv::Scalar& color);
 			Item(std::filesystem::path path, bool sliced = false);
 
 			~Item() = default;
