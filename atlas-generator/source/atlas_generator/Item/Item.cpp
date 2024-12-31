@@ -39,7 +39,7 @@ namespace wk
 		{
 			if (is_sliced()) return true;
 
-			return width() <= 50 || height() <= 50;
+			return 100 > width() + height();
 		};
 
 		bool Item::is_sliced() const
@@ -171,7 +171,7 @@ namespace wk
 				static_cast<int>(abs(static_cast<float>(current_size.height) / 2))
 			};
 
-			float distance_threshold = (current_size.width + current_size.height) * 0.025f;
+			float distance_threshold = (current_size.width + current_size.height) * 0.03f;
 
 			auto calculate_triangle = [&centroid, &current_size, &polygon, &triangles, &distance_threshold, this](Point input_point)
 				{
@@ -252,34 +252,16 @@ namespace wk
 				}
 
 				solution = Difference(PathsD({ subject }), clip, FillRule::NonZero);
-
-				if (solution.size() != 1)
+				PathD path;
+				for (auto& candidate : solution)
 				{
-#ifdef CV_DEBUG
-					for (size_t i = 0; solution.size() > i; i++)
+					if (candidate.size() > 3)
 					{
-						PathD& path = solution[i];
-						std::vector<cv::Point> points;
-						for (auto& point : path)
-						{
-							points.emplace_back(point.x, point.y);
-						}
-
-						ShowContour(m_image, points);
-
-						for (auto& triangle : triangles)
-						{
-							ShowContour(m_image, Container<Point>{ triangle.p1, triangle.p2, triangle.p3 });
-						}
+						path = candidate;
+						break;
 					}
-#endif
-
-					assert(0);
-					fallback_rectangle();
-					return;
 				}
 
-				PathD& path = solution[0];
 				vertices.reserve(path.size());
 				for (auto& point : path)
 				{
