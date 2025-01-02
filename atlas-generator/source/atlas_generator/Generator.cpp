@@ -151,8 +151,8 @@ namespace wk
 				cv::copyMakeBorder(image, image, m_config.extrude(), m_config.extrude(), m_config.extrude(), m_config.extrude(), cv::BORDER_REPLICATE);
 
 				auto index = item.texture_index;
-				auto x = static_cast<uint16_t>(libnest2d::getX(box.minCorner()) - m_config.extrude() * 2);
-				auto y = static_cast<uint16_t>(libnest2d::getY(box.minCorner()) - m_config.extrude() * 2);
+				auto x = (uint16_t)std::clamp<long long>(libnest2d::getX(box.minCorner()) - m_config.extrude() * 2, 0, std::numeric_limits<uint16_t>::max());
+				auto y = (uint16_t)std::clamp<long long>(libnest2d::getY(box.minCorner()) - m_config.extrude() * 2, 0, std::numeric_limits<uint16_t>::max());
 
 				switch (atlas_type)
 				{

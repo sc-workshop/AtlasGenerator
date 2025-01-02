@@ -117,6 +117,7 @@ namespace wk
 				fallback_rectangle();
 				return;
 			}
+			normalize_mask(alpha_mask, config);
 
 			cv::Rect crop_bound = boundingRect(alpha_mask);
 			if (crop_bound.width <= 0) crop_bound.width = 1;
@@ -141,16 +142,12 @@ namespace wk
 				vertices.reserve(8);
 			}
 
-			normalize_mask(alpha_mask, config);
-
 			Container<Point> polygon;
 			{
 				Container<cv::Point> hull;
 				{
 					Container<cv::Point> contour;
 					get_image_contour(alpha_mask, contour);
-
-					//ShowContour(alpha_mask, contour);
 
 					// Getting convex hull as base polygon for calculations
 					convexHull(contour, hull, true);
@@ -180,6 +177,8 @@ namespace wk
 						PointF((float)centroid.x, (float)centroid.y)
 					);
 
+					//ShowContour(m_image, Container<Point>{ input_point, centroid });
+
 					auto intersection_result = line_intersect(polygon, ray);
 					if (!intersection_result.has_value()) return;
 
@@ -187,6 +186,8 @@ namespace wk
 
 					const Point& p1 = polygon[p1_idx];
 					const Point& p2 = polygon[p2_idx];
+
+					//ShowContour(m_image, Container<Point>{ p1, p2 });
 
 					// Skip processing if distance between corner and intersect point is too smol
 					{
@@ -208,6 +209,8 @@ namespace wk
 					Triangle cutoff = build_triangle(
 						cutoff_bisector, angle, (current_size.width + current_size.height) * 2
 					);
+
+					//ShowContour(m_image, Container<Point>{ cutoff.p1, cutoff.p2, cutoff.p3 });
 
 					triangles.push_back(cutoff);
 				};
@@ -252,6 +255,7 @@ namespace wk
 				}
 
 				solution = Difference(PathsD({ subject }), clip, FillRule::NonZero);
+
 				PathD path;
 				for (auto& candidate : solution)
 				{
