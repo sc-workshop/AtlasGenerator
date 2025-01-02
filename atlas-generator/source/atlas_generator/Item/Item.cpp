@@ -271,8 +271,8 @@ namespace wk
 				{
 					int32_t x = (int32_t)std::ceil((point.x + crop_bound.x) * scale_factor);
 					int32_t y = (int32_t)std::ceil((point.y + crop_bound.y) * scale_factor);
-					uint16_t u = (uint16_t)point.x;
-					uint16_t v = (uint16_t)point.y;
+					uint16_t u = (uint16_t)std::ceil(point.x);
+					uint16_t v = (uint16_t)std::ceil(point.y);
 
 					vertices.emplace_back(x, y, u, v);
 				}
@@ -565,7 +565,6 @@ namespace wk
 					{
 						result.emplace_back(h, w);
 					}
-
 				}
 			}
 		}

@@ -107,7 +107,7 @@ namespace wk {
 								return item == other;
 							}
 						);
-						
+
 						if (item_it != m_items.end())
 						{
 							item_index = std::distance(m_items.begin(), item_it);
@@ -182,7 +182,7 @@ namespace wk {
 
 		public:
 			template<typename T, bool has_alpha, int alpha_channel = -1>
-			void place_image_to(const cv::Mat& src, size_t atlas_index, uint16_t x, uint16_t y)
+			void place_image_to(const cv::Mat& src, size_t atlas_index, int x, int y)
 			{
 				using namespace cv;
 
@@ -192,12 +192,12 @@ namespace wk {
 				Size dstSize = dst.size();
 
 				for (uint16_t h = 0; srcSize.height > h; h++) {
-					uint16_t dstH = h + y;
-					if (dstH >= dstSize.height) continue;
+					int dstH = h + y;
+					if (0 > dstH || dstH >= dstSize.height) continue;
 
 					for (uint16_t w = 0; srcSize.width > w; w++) {
-						uint16_t dstW = w + x;
-						if (dstW >= dstSize.width) continue;
+						int dstW = w + x;
+						if (0 > dstW || dstW >= dstSize.width) continue;
 
 						T pixel = src.at<T>(h, w);
 
