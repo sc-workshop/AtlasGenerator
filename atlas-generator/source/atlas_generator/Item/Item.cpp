@@ -2,6 +2,9 @@
 
 #include "core/math/triangle.h"
 #include "core/geometry/intersect.hpp"
+#include "core/geometry/convex.hpp"
+#include "core/stb/stb.h"
+#include "core/io/file_stream.h"
 
 #include <cmath>
 #include <clipper2/clipper.h>
@@ -14,26 +17,26 @@ namespace wk
 		{
 		}
 
-		Item::Item(const cv::Mat& image, bool sliced) : m_sliced(sliced), m_image(image)
+		Item::Item(const RawImage& image, bool sliced) : m_sliced(sliced), m_image(wk::CreateRef<RawImage>(image))
 		{
 		}
 
-		Item::Item(const cv::Scalar& color) : m_colorfill(true)
+		Item::Item(const ColorRGBA& color) : m_image(wk::CreateRef<RawImage>(color)), m_colorfill(true)
 		{
-			m_image = cv::Mat(1, 1, CV_8UC4, color);
 		}
 
 #ifdef ATLAS_GENERATOR_WITH_IMAGE_CODECS
 		Item::Item(std::filesystem::path path, bool sliced) :
 			m_sliced(sliced)
 		{
-			m_image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
+			InputFileStream file(path);
+			stb::load_image(file, m_image);
 		}
 #endif
 
 		Item::Status Item::status() const { return m_status; }
-		uint16_t Item::width() const { return (uint16_t)image().cols; };
-		uint16_t Item::height() const { return (uint16_t)image().rows; };
+		uint16_t Item::width() const { return (uint16_t)m_image->width(); };
+		uint16_t Item::height() const { return (uint16_t)m_image->height(); };
 
 		bool Item::is_rectangle() const
 		{
@@ -59,6 +62,8 @@ namespace wk
 
 		bool Item::mark_as_custom()
 		{
+			if (!verify_vertices()) return false;
+
 			m_status = Status::Valid;
 			mark_as_preprocessed();
 			return true;
@@ -72,27 +77,26 @@ namespace wk
 
 		void Item::generate_image_polygon(const Config& config)
 		{
-			using namespace cv;
 			using namespace wk::Geometry;
 
 			float scale_factor = is_sliced() ? 1.0f : config.scale();
-			Size full_size(m_image.cols, m_image.rows);
+			Image::Size full_size = m_image->size();
+			Image::Size current_size = full_size;
 			PointF crop_offset(0.0f, 0.0f);
-			Size current_size = full_size;
 
 			auto fallback_rectangle = [this, &crop_offset, &full_size, &current_size]
 				{
 					vertices.resize(4);
 
 					vertices[3].uv = { 0,												0 };
-					vertices[2].uv = { 0,												(uint16_t)current_size.height };
-					vertices[1].uv = { (uint16_t)current_size.width,					(uint16_t)current_size.height };
-					vertices[0].uv = { (uint16_t)current_size.width,					0 };
+					vertices[2].uv = { 0,												(uint16_t)current_size.y };
+					vertices[1].uv = { (uint16_t)current_size.x,					(uint16_t)current_size.y };
+					vertices[0].uv = { (uint16_t)current_size.x,					0 };
 
 					vertices[3].xy = { (uint16_t)crop_offset.x,								(uint16_t)crop_offset.y };
-					vertices[2].xy = { (uint16_t)crop_offset.x,								(uint16_t)(crop_offset.y + current_size.height) };
-					vertices[1].xy = { (uint16_t)(crop_offset.x + current_size.width),		(uint16_t)(crop_offset.y + current_size.height) };
-					vertices[0].xy = { (uint16_t)(crop_offset.x + current_size.width),		(uint16_t)crop_offset.y };
+					vertices[2].xy = { (uint16_t)crop_offset.x,								(uint16_t)(crop_offset.y + current_size.y) };
+					vertices[1].xy = { (uint16_t)(crop_offset.x + current_size.x),		(uint16_t)(crop_offset.y + current_size.y) };
+					vertices[0].xy = { (uint16_t)(crop_offset.x + current_size.x),		(uint16_t)crop_offset.y };
 
 					m_status = Status::Valid;
 				};
@@ -104,30 +108,31 @@ namespace wk
 				return;
 			}
 
-			Mat alpha_mask;
-			switch (m_image.channels())
+			RawImageRef alpha_mask;
+			switch (m_image->channels())
 			{
 			case 4:
-				extractChannel(m_image, alpha_mask, 3);
+				m_image->extract_channel(alpha_mask, 3);
 				break;
 			case 2:
-				extractChannel(m_image, alpha_mask, 1);
+				m_image->extract_channel(alpha_mask, 1);
 				break;
 			default:
 				fallback_rectangle();
 				return;
 			}
+
 			normalize_mask(alpha_mask, config);
 
-			cv::Rect crop_bound = boundingRect(alpha_mask);
+			Image::Bound crop_bound = alpha_mask->bound();
 			if (crop_bound.width <= 0) crop_bound.width = 1;
 			if (crop_bound.height <= 0) crop_bound.height = 1;
 
 			// Image cropping by alpha
-			m_image = m_image(crop_bound);
-			alpha_mask = alpha_mask(crop_bound);
+			m_image = m_image->crop(crop_bound);
+			alpha_mask = alpha_mask->crop(crop_bound);
 
-			current_size = alpha_mask.size();
+			current_size = alpha_mask->size();
 			crop_offset = PointF(
 				crop_bound.x * scale_factor,
 				crop_bound.y * scale_factor
@@ -144,31 +149,22 @@ namespace wk
 
 			Container<Point> polygon;
 			{
-				Container<cv::Point> hull;
-				{
-					Container<cv::Point> contour;
-					get_image_contour(alpha_mask, contour);
+				Container<Point> contour;
+				get_image_contour(alpha_mask, contour);
 
-					// Getting convex hull as base polygon for calculations
-					convexHull(contour, hull, true);
-				}
-
-				polygon.reserve(hull.size());
-				for (cv::Point& point : hull)
-				{
-					polygon.emplace_back(point.x, point.y);
-				}
+				// Getting convex hull as base polygon for calculations
+				polygon = Hull::quick_hull(contour);
 			}
 
 			Container<Triangle> triangles;
 			triangles.reserve(4);
 
 			Point centroid = {
-				static_cast<int>(abs(static_cast<float>(current_size.width) / 2)),
-				static_cast<int>(abs(static_cast<float>(current_size.height) / 2))
+				static_cast<int>(abs(static_cast<float>(current_size.x) / 2)),
+				static_cast<int>(abs(static_cast<float>(current_size.y) / 2))
 			};
 
-			float distance_threshold = (current_size.width + current_size.height) * 0.03f;
+			float distance_threshold = (current_size.x + current_size.y) * 0.03f;
 
 			auto calculate_triangle = [&centroid, &current_size, &polygon, &triangles, &distance_threshold, this](Point input_point)
 				{
@@ -177,8 +173,6 @@ namespace wk
 						PointF((float)centroid.x, (float)centroid.y)
 					);
 
-					//ShowContour(m_image, Container<Point>{ input_point, centroid });
-
 					auto intersection_result = line_intersect(polygon, ray);
 					if (!intersection_result.has_value()) return;
 
@@ -186,8 +180,6 @@ namespace wk
 
 					const Point& p1 = polygon[p1_idx];
 					const Point& p2 = polygon[p2_idx];
-
-					//ShowContour(m_image, Container<Point>{ p1, p2 });
 
 					// Skip processing if distance between corner and intersect point is too smol
 					{
@@ -207,20 +199,18 @@ namespace wk
 					);
 
 					Triangle cutoff = build_triangle(
-						cutoff_bisector, angle, (current_size.width + current_size.height) * 2
+						cutoff_bisector, angle, (current_size.x + current_size.y) * 2
 					);
-
-					//ShowContour(m_image, Container<Point>{ cutoff.p1, cutoff.p2, cutoff.p3 });
 
 					triangles.push_back(cutoff);
 				};
 
-			Rect bounding_box = { 0, 0, current_size.width, current_size.height };
+			Rect bounding_box = { 0, 0, current_size.x, current_size.y };
 
 			calculate_triangle(Point(0, 0));
-			calculate_triangle(Point(current_size.width, 0));
-			calculate_triangle(Point(current_size.width, current_size.height));
-			calculate_triangle(Point(0, current_size.height));
+			calculate_triangle(Point(current_size.x, 0));
+			calculate_triangle(Point(current_size.x, current_size.y));
+			calculate_triangle(Point(0, current_size.y));
 
 			if (triangles.empty())
 			{
@@ -238,9 +228,9 @@ namespace wk
 				PathD subject;
 				subject.reserve(4);
 				subject.emplace_back(0, 0);
-				subject.emplace_back(current_size.width, 0);
-				subject.emplace_back(current_size.width, current_size.height);
-				subject.emplace_back(0, current_size.height);
+				subject.emplace_back(current_size.x, 0);
+				subject.emplace_back(current_size.x, current_size.y);
+				subject.emplace_back(0, current_size.y);
 
 				// Triangles
 				clip.reserve(triangles.size());
@@ -428,32 +418,14 @@ namespace wk
 
 		bool Item::operator ==(const Item& other) const
 		{
-			using namespace cv;
-
 			if (std::addressof(image()) == std::addressof(other.image())) return true;
 
-			if (m_image.type() != other.image().type() || width() != other.width() || height() != other.height()) return false;
-			int imageChannelsCount = other.image().channels();
-			int otherChannelsCount = other.image().channels();
-
-			if (imageChannelsCount != otherChannelsCount) return false;
-
-			std::vector<Mat> channels(imageChannelsCount);
-			std::vector<Mat> otherChannels(imageChannelsCount);
-			split(image(), channels);
-			split(other.image(), otherChannels);
-
-			for (int j = 0; imageChannelsCount > j; j++) {
-				for (int w = 0; width() > w; w++) {
-					for (int h = 0; height() > h; h++) {
-						uchar pix = channels[j].at<uchar>(h, w);
-						uchar otherPix = otherChannels[j].at<uchar>(h, w);
-						if (pix != otherPix) {
-							return false;
-						}
-					}
-				}
+			if (!m_hash)
+			{
+				m_hash = m_image->hash();
 			}
+
+			if (m_hash != other.m_hash) return false;
 
 			return true;
 		}
@@ -461,18 +433,20 @@ namespace wk
 		void Item::image_preprocess(const Config& config)
 		{
 			if (m_preprocessed) return;
-
 			if (config.scale() != 1.0f && !is_sliced())
 			{
-				cv::Size sprite_size(
-					(int)ceil(m_image.cols / config.scale()),
-					(int)ceil(m_image.rows / config.scale())
+				RawImageRef resized = CreateRef<RawImage>(
+					(uint16_t)ceil(m_image->width() * config.scale()),
+					(uint16_t)ceil(m_image->height() * config.scale()),
+					m_image->depth(),
+					m_image->colorspace()
 				);
 
-				cv::resize(m_image, m_image, sprite_size);
+				m_image->copy(*resized);
+				m_image = resized;
 			}
 
-			int channels = m_image.channels();
+			int channels = m_image->channels();
 
 			if (channels == 2 || channels == 4) {
 				alpha_preprocess();
@@ -482,9 +456,7 @@ namespace wk
 		}
 		void Item::alpha_preprocess()
 		{
-			using namespace cv;
-
-			int channels = m_image.channels();
+			int channels = m_image->channels();
 
 			for (uint16_t h = 0; height() > h; h++) {
 				for (uint16_t w = 0; width() > w; w++) {
@@ -492,27 +464,21 @@ namespace wk
 					{
 					case 4:
 					{
-						Vec4b pixel = m_image.at<Vec4b>(h, w);
+						ColorRGBA& pixel = m_image->at<ColorRGBA>(w, h);
+						float alpha = (float)pixel.a / 255.f;
 
-						// Alpha premultiply
-						float alpha = static_cast<float>(pixel[3]) / 255.0f;
-						m_image.at<Vec4b>(h, w) = {
-							static_cast<uchar>(pixel[0] * alpha),
-							static_cast<uchar>(pixel[1] * alpha),
-							static_cast<uchar>(pixel[2] * alpha),
-							pixel[3]
-						};
+						pixel.r = (uint8_t)(pixel.r * alpha);
+						pixel.g = (uint8_t)(pixel.g * alpha);
+						pixel.b = (uint8_t)(pixel.b * alpha);
+
 					}
 					break;
 					case 2:
 					{
-						Vec2b& pixel = m_image.at<Vec2b>(h, w);
+						ColorLA& pixel = m_image->at<ColorLA>(w, h);
+						float alpha = (float)pixel.a / 255.f;
 
-						float alpha = static_cast<float>(pixel[1]) / 255.0f;
-						m_image.at<Vec2b>(h, w) = {
-							static_cast<uchar>(pixel[0] * alpha),
-							pixel[1]
-						};
+						pixel.l = (uint8_t)(pixel.l * alpha);
 					}
 					break;
 					}
@@ -520,19 +486,19 @@ namespace wk
 			}
 		}
 
-		void Item::get_image_contour(cv::Mat& image, Container<cv::Point>& result)
+		void Item::get_image_contour(RawImageRef& image, Container<Point>& result)
 		{
-			for (uint16_t h = 0; image.cols > h; h++) {
-				for (uint16_t w = 0; image.rows > w; w++) {
-					uchar& pixel = image.at<uchar>(w, h);
+			for (Image::SizeT h = 0; image->height() > h; h++) {
+				for (Image::SizeT w = 0; image->width() > w; w++) {
+					uint8_t pixel = image->at<uint8_t>(w, h);
 					bool valid = false;
 
 					// Iterate over black pixels only
 					if (pixel > 1)
 					{
-						if (h == 0 || w == 0 || h == image.cols - 1 || w == image.rows - 1)
+						if (h == 0 || w == 0 || h == image->height() - 1 || w == image->width() - 1)
 						{
-							result.emplace_back(h, w);
+							result.emplace_back(w, h);
 							continue;
 						}
 					}
@@ -551,9 +517,12 @@ namespace wk
 
 							if (dx == 0 && dy == 0) continue;
 							if (0 > x || 0 > y) continue;
-							if (x >= image.rows || y >= image.cols) continue;
+							if (x >= image->width() || y >= image->height()) continue;
 
-							uchar& neighbor = image.at<uchar>(x, y);
+							uint8_t neighbor = image->at<uint8_t>(
+								(Image::SizeT)x, 
+								(Image::SizeT)y
+							);
 
 							has_positive = has_positive || neighbor > 0;
 							has_negative = has_negative || neighbor == 0;
@@ -563,20 +532,18 @@ namespace wk
 					valid = has_negative && has_positive;
 					if (valid)
 					{
-						result.emplace_back(h, w);
+						result.emplace_back(w, h);
 					}
 				}
 			}
 		}
 
-		void Item::normalize_mask(cv::Mat& mask, const Config& config)
+		void Item::normalize_mask(RawImageRef& mask, const Config& config)
 		{
-			using namespace cv;
-
 			// Pixel Normalize
-			for (uint16_t h = 0; mask.cols > h; h++) {
-				for (uint16_t w = 0; mask.rows > w; w++) {
-					uchar& pixel = mask.at<uchar>(w, h);
+			for (uint16_t h = 0; mask->height() > h; h++) {
+				for (uint16_t w = 0; mask->width() > w; w++) {
+					uint8_t& pixel = mask->at<uint8_t>(w, h);
 
 					if (pixel > config.alpha_threshold()) {
 						pixel = 255;
@@ -588,11 +555,29 @@ namespace wk
 				}
 			}
 
-			const int size = 2;
-			cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS,
-				cv::Size(2 * size + 1, 2 * size + 1),
-				cv::Point(size, size));
-			cv::dilate(mask, mask, element);
+			//const int size = 2;
+			//cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS,
+			//	cv::Size(2 * size + 1, 2 * size + 1),
+			//	cv::Point(size, size));
+			//cv::dilate(mask, mask, element);
+		}
+
+		bool Item::verify_vertices()
+		{
+			std::vector<PointUV> points;
+			points.resize(vertices.size());
+			for (size_t i = 0; vertices.size() > i; i++)
+			{
+				points[i] = vertices[i].uv;
+			}
+
+			if (Geometry::get_polygon_type(points) != Geometry::PolygonType::Convex)
+			{
+				m_status = Status::InvalidPolygon;
+				return false;
+			}
+
+			return true;
 		}
 	}
 }

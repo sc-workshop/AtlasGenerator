@@ -11,28 +11,24 @@ namespace wk
 		{
 		}
 
-		cv::Mat& Generator::get_atlas(size_t atlas)
+		RawImage& Generator::get_atlas(size_t atlas)
 		{
 			return m_atlases[atlas];
 		}
 
-		bool Generator::validate_image(const cv::Mat& image)
+		bool Generator::validate_image(const RawImage& image)
 		{
-			if (1 > image.rows || 1 > image.cols)
+			if (1 > image.width() || 1 > image.height())
 			{
 				return false;
 			}
 
-			int type = image.type();
-			if (type != CV_8UC1 && type != CV_8UC2 && type != CV_8UC3 && type != CV_8UC4)
-			{
-				return false;
-			}
+			if (image.is_complex()) return false;
 
 			return true;
 		}
 
-		bool Generator::pack_items(int atlas_type)
+		bool Generator::pack_items(Image::PixelDepth atlas_type)
 		{
 			// Vector with polygons for libnest2d
 			std::vector<libnest2d::Item> packer_items;
@@ -85,36 +81,33 @@ namespace wk
 			);
 
 			// Gathering texture size info
-			std::vector<cv::Size> sheet_size(bin_count);
+			std::vector <Image::Size> sheet_size(bin_count);
 			for (libnest2d::Item item : packer_items) {
 				if (item.binId() == libnest2d::BIN_ID_UNSET)
 				{
 					return false;
 				};
 
-				//auto& shape = item.transformedShape();
 				auto box = item.boundingBox();
-
-				cv::Size& size = sheet_size[item.binId()];
+				auto& size = sheet_size[item.binId()];
 
 				auto x = libnest2d::getX(box.maxCorner());
 				auto y = libnest2d::getY(box.maxCorner());
 
-				if (x > size.height) {
-					size.height = (int)x;
+				if (x > size.x) {
+					size.x = (Image::SizeT)x;
 				}
-				if (y > size.width) {
-					size.width = (int)y;
+				if (y > size.y) {
+					size.y = (Image::SizeT)y;
 				}
 			}
 
-			for (cv::Size& size : sheet_size)
+			m_atlases.reserve(sheet_size.size());
+			for (const auto& size : sheet_size)
 			{
 				m_atlases.emplace_back(
-					size.width,
-					size.height,
-					atlas_type,
-					cv::Scalar(0)
+					size.x, size.y,
+					atlas_type
 				);
 			}
 
@@ -123,9 +116,11 @@ namespace wk
 				Item& item = m_items[i];
 
 				auto rotation = packer_item.rotation();
-				double rotation_degree = -(rotation.toDegrees());
+				int rotation_degree = -((int)rotation.toDegrees()) % 360;
+				if (rotation_degree < 0) {
+					rotation_degree += 360;
+				}
 
-				auto shape = packer_item.transformedShape();
 				auto box = packer_item.boundingBox();
 
 				// Item Data
@@ -134,64 +129,17 @@ namespace wk
 				item.transform.translation.x = (int32_t)libnest2d::getX(packer_item.translation()) - m_config.extrude();
 				item.transform.translation.y = (int32_t)libnest2d::getY(packer_item.translation()) - m_config.extrude();
 
-				cv::Mat& image = item.image_ref();
-
-				// Image Transform
-				if (rotation_degree != 0) {
-					cv::Point2f center((float)((item.width() - 1) / 2.0), (float)((item.height() - 1) / 2.0));
-					cv::Mat rot = cv::getRotationMatrix2D(center, rotation_degree, 1.0);
-					cv::Rect2f bbox = cv::RotatedRect(cv::Point2f(), item.image().size(), (float)rotation_degree).boundingRect2f();
-
-					rot.at<double>(0, 2) += bbox.width / 2.0 - item.width() / 2.0;
-					rot.at<double>(1, 2) += bbox.height / 2.0 - item.height() / 2.0;
-
-					cv::warpAffine(image, image, rot, bbox.size(), cv::INTER_NEAREST);
-				}
-
-				cv::copyMakeBorder(image, image, m_config.extrude(), m_config.extrude(), m_config.extrude(), m_config.extrude(), cv::BORDER_REPLICATE);
-
 				auto index = item.texture_index;
-				auto x = (int)libnest2d::getX(box.minCorner()) - m_config.extrude() * 2;
-				auto y = (int)libnest2d::getY(box.minCorner()) - m_config.extrude() * 2;
+				auto x = (uint16_t)(libnest2d::getX(box.minCorner()) - m_config.extrude());
+				auto y = (uint16_t)(libnest2d::getY(box.minCorner()) - m_config.extrude());
 
-				switch (atlas_type)
-				{
-				case CV_8UC1:
-					place_image_to<cv::Vec<uchar, 1>, false>(
-						image,
-						index,
-						x,
-						y
-					);
-					break;
-				case CV_8UC2:
-					place_image_to<cv::Vec2b, true, 1>(
-						image,
-						index,
-						x,
-						y
-					);
-					break;
-				case CV_8UC3:
-					place_image_to<cv::Vec3b, false>(
-						image,
-						index,
-						x,
-						y
-					);
-					break;
-				case CV_8UC4:
-					place_image_to<cv::Vec4b, true, 3>(
-						image,
-						index,
-						x,
-						y
-					);
-					break;
-				default:
-					break;
-				}
-
+				place_image_to(
+					item.image(),
+					index,
+					x,
+					y,
+					(Item::FixedRotation)rotation_degree
+				);
 			}
 
 			return true;

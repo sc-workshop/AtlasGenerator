@@ -31,7 +31,7 @@ namespace wk {
 				m_item_counter = 0;
 				m_duplicate_item_counter = 0;
 
-				std::map<int, size_t, std::greater<int>> texture_variants;
+				std::map<Image::PixelDepth, size_t, std::greater<Image::PixelDepth>> texture_variants;
 				for (size_t i = 0; items.size() > i; i++)
 				{
 					Item& item = items[i];
@@ -41,13 +41,13 @@ namespace wk {
 						throw PackagingException(PackagingException::Reason::UnsupportedImage, i);
 					}
 
-					texture_variants[item.image().type()]++;
+					texture_variants[item.image().depth()]++;
 				}
 
 				if (texture_variants.size() == 1)
 				{
 					const Item& first_item = items[0];
-					int type = first_item.image().type();
+					auto type = first_item.image().depth();
 
 					// iterate just by items vector
 					auto it = ItemIterator<size_t>(0, items.size());
@@ -57,14 +57,14 @@ namespace wk {
 				size_t bin_count = 0;
 				for (auto it = texture_variants.begin(); it != texture_variants.end(); ++it)
 				{
-					int type = it->first;
+					auto depth = it->first;
 					Container<size_t> item_indices;
 					item_indices.reserve(it->second);
 
 					for (size_t i = 0; items.size() > i; i++)
 					{
 						Item& item = items[i];
-						if (item.image().type() == type)
+						if (item.image().depth() == depth)
 						{
 							item_indices.push_back(i);
 						}
@@ -75,19 +75,19 @@ namespace wk {
 
 					// iterate only by current type items
 					auto item_it = ItemIterator<size_t>(0, item_indices.size(), item_indices);
-					bin_count += generate<T>(items, item_it, type);
+					bin_count += generate<T>(items, item_it, depth);
 				}
 
 				return bin_count;
 			}
 
-			cv::Mat& get_atlas(size_t atlas);
+			RawImage& get_atlas(size_t atlas);
 
 		private:
 			using Iterator = ItemIterator<size_t>::iterator;
 
 			template<typename T = Item>
-			size_t generate(Container<T>& items, ItemIterator<size_t>& item_iterator, int type)
+			size_t generate(Container<T>& items, ItemIterator<size_t>& item_iterator, Image::PixelDepth depth)
 			{
 				Container<size_t> inverse_duplicate_indices;
 				inverse_duplicate_indices.reserve(items.size());
@@ -126,7 +126,6 @@ namespace wk {
 				policy |= std::launch::async;
 #endif // !WK_DEBUG
 
-
 				parallel::enumerate(
 					m_items.begin(), m_items.end(), [&](std::reference_wrapper<Item>& item_ref, size_t)
 					{
@@ -154,7 +153,7 @@ namespace wk {
 				}
 
 				size_t current_atlas_count = m_atlases.size();
-				if (!pack_items(type))
+				if (!pack_items(depth))
 				{
 					throw PackagingException(PackagingException::Reason::Unknown);
 				};
@@ -178,41 +177,93 @@ namespace wk {
 				return m_atlases.size() - current_atlas_count;
 			}
 
-			bool pack_items(int atlas_type);
+			bool pack_items(Image::PixelDepth atlas_type);
 
 		public:
-			template<typename T, bool has_alpha, int alpha_channel = -1>
-			void place_image_to(const cv::Mat& src, size_t atlas_index, int x, int y)
+			void place_image_to(const RawImage& src, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation)
 			{
-				using namespace cv;
+				uint16_t width = src.width();
+				uint16_t height = src.height();
 
-				cv::Mat& dst = m_atlases[atlas_index];
+				uint16_t centerX = width / 2;
+				uint16_t centerY = height / 2;
 
-				Size srcSize = src.size();
-				Size dstSize = dst.size();
+				auto rotate_pixel = [centerX, centerY, rotation](uint16_t x, uint16_t y) -> std::pair<uint16_t, uint16_t>
+					{
+						int16_t translatedX = x - centerX;
+						int16_t translatedY = y - centerY;
 
-				for (uint16_t h = 0; srcSize.height > h; h++) {
-					int dstH = h + y;
-					if (0 > dstH || dstH >= dstSize.height) continue;
+						int16_t rotatedX = translatedX;
+						int16_t rotatedY = translatedY;
 
-					for (uint16_t w = 0; srcSize.width > w; w++) {
-						int dstW = w + x;
-						if (0 > dstW || dstW >= dstSize.width) continue;
-
-						T pixel = src.at<T>(h, w);
-
-						if constexpr (has_alpha) {
-							if (m_config.alpha_threshold() > pixel[alpha_channel])
-							{
-								continue;
-							}
+						switch (rotation)
+						{
+						case wk::AtlasGenerator::Item::Rotation90:
+							rotatedX = -translatedY;
+							rotatedY = translatedX;
+							break;
+						case wk::AtlasGenerator::Item::Rotation180:
+							rotatedX = -translatedX;
+							rotatedY = -translatedY;
+							break;
+						case wk::AtlasGenerator::Item::Rotation270:
+							rotatedX = translatedY;
+							rotatedY = -translatedX;
+							break;
+						default:
+							break;
 						}
 
-						dst.at<T>(dstH, dstW) = pixel;
+						uint16_t resultX = rotatedX + centerX;
+						uint16_t resultY = rotatedY + centerY;
+						return { resultX, resultY };
+					};
+
+				auto& atlas = m_atlases[atlas_index];
+				uint8_t pixel_size = Image::PixelDepthTable[(uint16_t)atlas.depth()].byte_count;
+
+				for (uint16_t h = 0; src.height() > h; h++)
+				{
+					for (uint16_t w = 0; src.width() > w; w++)
+					{
+						uint16_t dstW = w + x;
+						uint16_t dstH = h + y;
+
+						if (rotation != Item::NoRotation)
+						{
+							auto [rotatedX, rotatedY] = rotate_pixel(w, h);
+							dstW = rotatedX + x;
+							dstH = rotatedY + y;
+						}
+						if (0 > dstW || dstW >= atlas.width()) continue;
+						if (0 > dstH || dstH >= atlas.height()) continue;
+
+						uint8_t* pixel = src.at(w, h);
+						uint8_t alpha = 255;
+
+						switch (src.base_type())
+						{
+						case Image::BasePixelType::RGBA:
+							alpha = (*(ColorRGBA*)pixel).a;
+							break;
+						case Image::BasePixelType::LA:
+							alpha = (*(ColorLA*)pixel).a;
+							break;
+						default:
+							break;
+						}
+
+						if (m_config.alpha_threshold() > alpha)
+						{
+							continue;
+						}
+
+						Memory::copy(pixel, atlas.at(dstW, dstH), pixel_size);
 					}
 				}
 			};
-			static bool validate_image(const cv::Mat& image);
+
+			static bool validate_image(const RawImage& image);
 
 		private:
 			const Config m_config;
@@ -220,7 +271,7 @@ namespace wk {
 			Container<std::reference_wrapper<Item>> m_items;
 			std::unordered_map<size_t, size_t> m_duplicate_indices;
 
-			Container<cv::Mat> m_atlases;
+			Container<RawImage> m_atlases;
 
 			size_t m_item_counter = 0;
 			size_t m_duplicate_item_counter = 0;

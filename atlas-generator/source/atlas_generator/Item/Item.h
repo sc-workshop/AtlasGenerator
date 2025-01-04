@@ -2,21 +2,16 @@
 
 #include <stdint.h>
 #include <vector>
-#include <opencv2/opencv.hpp>
 #include <filesystem>
 #include <optional>
+#include "core/image/raw_image.h"
+#include "core/math/color_rgba.h"
+#include "core/memory/ref.h"
 
 #include "Vertex.h"
 #include "atlas_generator/Config.h"
 #include "core/math/point.h"
 #include "core/math/rect.h"
-
-#ifdef CV_DEBUG
-void ShowContour(cv::Mat& src, std::vector<wk::AtlasGenerator::Vertex>& points);
-void ShowContour(cv::Mat& src, std::vector<wk::Point>& points);
-void ShowContour(cv::Mat& src, std::vector<cv::Point> points);
-void ShowImage(std::string name, cv::Mat& image);
-#endif
 
 namespace wk
 {
@@ -57,9 +52,17 @@ namespace wk
 				InvalidPolygon
 			};
 
+			enum FixedRotation : uint16_t
+			{
+				NoRotation = 0,
+				Rotation90 = 90,
+				Rotation180 = 180,
+				Rotation270 = 270
+			};
+
 		public:
-			Item(const cv::Mat& image, bool sliced = false);
-			Item(const cv::Scalar& color);
+			Item(const RawImage& image, bool sliced = false);
+			Item(const ColorRGBA& color);
 			Item(std::filesystem::path path, bool sliced = false);
 
 			~Item() = default;
@@ -70,8 +73,7 @@ namespace wk
 			uint16_t width() const;
 			uint16_t height() const;
 
-			const cv::Mat& image() const { return m_image; };
-			cv::Mat& image_ref() { return m_image; };
+			const RawImage& image() const { return *m_image; };
 
 			// Generator Info
 		public:
@@ -109,9 +111,11 @@ namespace wk
 			void image_preprocess(const Config& config);
 			void alpha_preprocess();
 
-			void get_image_contour(cv::Mat& image, Container<cv::Point>& result);
+			void get_image_contour(RawImageRef& image, Container<Point>& result);
 
-			void normalize_mask(cv::Mat& mask, const Config& config);
+			void normalize_mask(RawImageRef& mask, const Config& config);
+
+			bool verify_vertices();
 
 		protected:
 			Status m_status = Status::Unset;
@@ -119,7 +123,8 @@ namespace wk
 			bool m_sliced = false;
 			bool m_colorfill = false;
 
-			cv::Mat m_image;
+			RawImageRef m_image;
+			mutable size_t m_hash = 0;
 		};
 	}
 }
