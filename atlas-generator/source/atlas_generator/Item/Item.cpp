@@ -62,7 +62,7 @@ namespace wk
 
 		bool Item::mark_as_custom()
 		{
-			if (!verify_vertices()) return false;
+			//if (!verify_vertices()) return false;
 
 			m_status = Status::Valid;
 			mark_as_preprocessed();
