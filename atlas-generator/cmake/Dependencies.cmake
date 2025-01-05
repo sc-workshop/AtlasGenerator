@@ -10,8 +10,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(WorkshopCore)
 
-# Image Processing
-include(cmake/opencv.cmake)
+# Include opencv only for CLI
+if (${BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS})
+    # Image Processing
+    include(cmake/opencv.cmake)
+endif()
 
 # 2D packaging
 include(cmake/libnest2d.cmake)
