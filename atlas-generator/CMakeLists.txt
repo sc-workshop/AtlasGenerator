@@ -34,14 +34,3 @@ target_include_directories(${TARGET}
 set_target_properties(${TARGET} PROPERTIES
     FOLDER WorkshopSDK/
 )
-
-foreach(lib IN LISTS BUILD_LIST)
-    target_link_libraries(${TARGET} PUBLIC 
-        opencv_${lib}
-    )
-
-    target_include_directories(${TARGET}
-        PUBLIC
-        ${OPENCV_MODULE_opencv_${lib}_LOCATION}/include
-    )
-endforeach()
