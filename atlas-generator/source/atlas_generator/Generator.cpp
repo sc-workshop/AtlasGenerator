@@ -105,8 +105,12 @@ namespace wk
 			m_atlases.reserve(sheet_size.size());
 			for (const auto& size : sheet_size)
 			{
+				uint16_t width = (uint16_t)(size.x + m_config.extrude());
+				uint16_t height = (uint16_t)(size.y + m_config.extrude());
+
 				m_atlases.emplace_back(
-					(uint16_t)(size.x + m_config.extrude()), (uint16_t)(size.y + m_config.extrude()),
+					std::clamp<uint16_t>(width, 0, m_config.width()), 
+					std::clamp<uint16_t>(height, 0, m_config.height()),
 					atlas_type
 				);
 			}
@@ -117,9 +121,6 @@ namespace wk
 
 				auto rotation = packer_item.rotation();
 				int rotation_degree = ((int)rotation.toDegrees()) % 360;
-				if (rotation_degree < 0) {
-					rotation_degree += 360;
-				}
 
 				auto box = packer_item.boundingBox();
 
@@ -132,8 +133,6 @@ namespace wk
 				auto index = item.texture_index;
 				auto x = (uint16_t)(libnest2d::getX(box.minCorner()));
 				auto y = (uint16_t)(libnest2d::getY(box.minCorner()));
-				
-
 
 				place_image_to(
 					item.image_ref(),
