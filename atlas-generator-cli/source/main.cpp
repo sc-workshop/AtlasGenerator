@@ -64,16 +64,25 @@ public:
 				print("Unknown or wrong agument " << argument);
 			}
 
+			auto valid_path = [](fs::path path)
+				{
+					if (path.extension() == ".png") return true;
+
+					return false;
+				};
+
 			if (fs::is_directory(argument))
 			{
 				for (fs::path path : fs::directory_iterator(argument))
 				{
-					files.push_back(path);
+					if (valid_path(path))
+						files.push_back(path);
 				}
 			}
 			else
 			{
-				files.push_back(argument);
+				if (valid_path(argument))
+					files.push_back(argument);
 			}
 		}
 	}

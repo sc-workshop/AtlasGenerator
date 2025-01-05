@@ -21,7 +21,7 @@ namespace wk
 		using Container = std::vector<T>;
 
 		// Interface that represents Atlas Sprite
-		class Item final
+		class Item
 		{
 		public:
 			class Transformation
@@ -40,8 +40,8 @@ namespace wk
 					T x = vertex.x;
 					T y = vertex.y;
 
-					vertex.x = (T)ceil(x * std::cos(rotation) - y * std::sin(rotation) + translation.x);
-					vertex.y = (T)ceil(y * std::cos(rotation) + x * std::sin(rotation) + translation.y);
+					vertex.x = (T)std::ceil(x * std::cos(rotation) - y * std::sin(rotation) + translation.x);
+					vertex.y = (T)std::ceil(y * std::cos(rotation) + x * std::sin(rotation) + translation.y);
 				}
 			};
 		public:
@@ -74,6 +74,7 @@ namespace wk
 			uint16_t height() const;
 
 			const RawImage& image() const { return *m_image; };
+			const RawImageRef& image_ref() const { return m_image; };
 
 			// Generator Info
 		public:
@@ -116,6 +117,8 @@ namespace wk
 			void normalize_mask(RawImageRef& mask, const Config& config);
 
 			bool verify_vertices();
+
+			std::size_t hash() const;
 
 		protected:
 			Status m_status = Status::Unset;

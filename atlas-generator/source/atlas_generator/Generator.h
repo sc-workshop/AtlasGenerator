@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <numeric>
 #include <execution>
+#include <cmath>
 
 #include "Config.h"
 #include "Item/Item.h"
@@ -31,7 +32,7 @@ namespace wk {
 				m_item_counter = 0;
 				m_duplicate_item_counter = 0;
 
-				std::map<Image::PixelDepth, size_t, std::greater<Image::PixelDepth>> texture_variants;
+				std::map<Image::PixelDepth, size_t> texture_variants;
 				for (size_t i = 0; items.size() > i; i++)
 				{
 					Item& item = items[i];
@@ -180,68 +181,85 @@ namespace wk {
 			bool pack_items(Image::PixelDepth atlas_type);
 
 		public:
-			void place_image_to(const RawImage& src, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation)
+			void place_image_to(RawImageRef src, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation)
 			{
-				uint16_t width = src.width();
-				uint16_t height = src.height();
+				bool colorfill = src->width() == 1 && src->height() == 1;
+				if (colorfill)
+				{
+					x -= m_config.extrude() / 2;
+					y -= m_config.extrude() / 2;
 
-				uint16_t centerX = width / 2;
-				uint16_t centerY = height / 2;
-
-				auto rotate_pixel = [centerX, centerY, rotation](uint16_t x, uint16_t y) -> std::pair<uint16_t, uint16_t>
+					ColorRGBA& color = src->at<ColorRGBA>(0, 0);
+					src = CreateRef<RawImage>(m_config.extrude() + 1, m_config.extrude() + 1, Image::PixelDepth::RGBA8);
+					for (uint16_t h = 0; src->height() > h; h++)
 					{
-						int16_t translatedX = x - centerX;
-						int16_t translatedY = y - centerY;
+						for (uint16_t w = 0; src->width() > w; w++)
+						{
+							ColorRGBA& pixel = src->at<ColorRGBA>(w, h);
+							pixel = color;
+						}
+					}
+				}
 
-						int16_t rotatedX = translatedX;
-						int16_t rotatedY = translatedY;
+				uint16_t width = src->width() - 1;
+				uint16_t height = src->height() - 1;
 
+				auto rotate_pixel = [rotation, width, height](uint16_t x, uint16_t y) -> std::pair<uint16_t, uint16_t>
+					{
+						int16_t rotatedX = width - x;
+						int16_t rotatedY = height - y;
+						
 						switch (rotation)
 						{
 						case wk::AtlasGenerator::Item::Rotation90:
-							rotatedX = -translatedY;
-							rotatedY = translatedX;
-							break;
+							return { rotatedY, x };
 						case wk::AtlasGenerator::Item::Rotation180:
-							rotatedX = -translatedX;
-							rotatedY = -translatedY;
-							break;
+							return { rotatedX, rotatedY };
 						case wk::AtlasGenerator::Item::Rotation270:
-							rotatedX = translatedY;
-							rotatedY = -translatedX;
-							break;
+							return { y, rotatedX };
 						default:
-							break;
+							return { x, y };
 						}
-
-						uint16_t resultX = rotatedX + centerX;
-						uint16_t resultY = rotatedY + centerY;
-						return { resultX, resultY };
 					};
+
+				switch (rotation)
+				{
+				case wk::AtlasGenerator::Item::Rotation90:
+				case wk::AtlasGenerator::Item::Rotation270:
+					width = src->height() - 1;
+					height = src->width() - 1;
+					break;
+				default:
+					break;
+				}
 
 				auto& atlas = m_atlases[atlas_index];
 				uint8_t pixel_size = Image::PixelDepthTable[(uint16_t)atlas.depth()].byte_count;
 
-				for (uint16_t h = 0; src.height() > h; h++)
+				for (uint16_t h = 0; src->height() > h; h++)
 				{
-					for (uint16_t w = 0; src.width() > w; w++)
+					for (uint16_t w = 0; src->width() > w; w++)
 					{
-						uint16_t dstW = w + x;
-						uint16_t dstH = h + y;
+						uint16_t srcW = w;
+						uint16_t srcH = h;
 
 						if (rotation != Item::NoRotation)
 						{
 							auto [rotatedX, rotatedY] = rotate_pixel(w, h);
-							dstW = rotatedX + x;
-							dstH = rotatedY + y;
+							srcW = rotatedX;
+							srcH = rotatedY;
 						}
+
+						uint16_t dstW = srcW + x;
+						uint16_t dstH = srcH + y;
+
 						if (0 > dstW || dstW >= atlas.width()) continue;
 						if (0 > dstH || dstH >= atlas.height()) continue;
 
-						uint8_t* pixel = src.at(w, h);
+						uint8_t* pixel = src->at(w, h);
 						uint8_t alpha = 255;
 
-						switch (src.base_type())
+						switch (src->base_type())
 						{
 						case Image::BasePixelType::RGBA:
 							alpha = (*(ColorRGBA*)pixel).a;
@@ -256,6 +274,37 @@ namespace wk {
 						if (m_config.alpha_threshold() > alpha)
 						{
 							continue;
+						}
+
+						if (!colorfill)
+						{
+							if (srcW == 0 || srcW >= width)
+							{
+								bool direction = srcW == 0;
+								uint16_t border = dstW;
+								for (uint16_t i = 0; m_config.extrude() > i; i++)
+								{
+									direction ? border-- : border++;
+									if (border >= 0 && atlas.width() > border)
+									{
+										Memory::copy(pixel, atlas.at(border, dstH), pixel_size);
+									}
+								}
+							}
+
+							if (srcH == 0 || srcH >= height)
+							{
+								bool direction = srcH == 0;
+								uint16_t border = dstH;
+								for (uint16_t i = 0; m_config.extrude() > i; i++)
+								{
+									direction ? border-- : border++;
+									if (border >= 0 && atlas.height() > border)
+									{
+										Memory::copy(pixel, atlas.at(dstW, border), pixel_size);
+									}
+								}
+							}
 						}
 
 						Memory::copy(pixel, atlas.at(dstW, dstH), pixel_size);

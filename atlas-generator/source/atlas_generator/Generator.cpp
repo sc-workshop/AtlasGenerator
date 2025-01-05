@@ -55,9 +55,9 @@ namespace wk
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 			cfg.placer_config.parallel = m_config.parallel();
 #if WK_DEBUG
-			cfg.placer_config.accuracy = 0.0;
+			cfg.placer_config.accuracy = 1.0f;
 #else
-			cfg.placer_config.accuracy = 0.6;
+			cfg.placer_config.accuracy = 0.6f;
 #endif
 			cfg.selector_config.verify_items = false;
 			//cfg.selector_config.texture_parallel_hard = m_config.parallel();
@@ -106,7 +106,7 @@ namespace wk
 			for (const auto& size : sheet_size)
 			{
 				m_atlases.emplace_back(
-					size.x, size.y,
+					size.x + m_config.extrude(), size.y + m_config.extrude(),
 					atlas_type
 				);
 			}
@@ -116,7 +116,7 @@ namespace wk
 				Item& item = m_items[i];
 
 				auto rotation = packer_item.rotation();
-				int rotation_degree = -((int)rotation.toDegrees()) % 360;
+				int rotation_degree = ((int)rotation.toDegrees()) % 360;
 				if (rotation_degree < 0) {
 					rotation_degree += 360;
 				}
@@ -126,15 +126,17 @@ namespace wk
 				// Item Data
 				item.texture_index = bin_offset + packer_item.binId();
 				item.transform.rotation = rotation;
-				item.transform.translation.x = (int32_t)libnest2d::getX(packer_item.translation()) - m_config.extrude();
-				item.transform.translation.y = (int32_t)libnest2d::getY(packer_item.translation()) - m_config.extrude();
+				item.transform.translation.x = (int32_t)libnest2d::getX(packer_item.translation());
+				item.transform.translation.y = (int32_t)libnest2d::getY(packer_item.translation());
 
 				auto index = item.texture_index;
-				auto x = (uint16_t)(libnest2d::getX(box.minCorner()) - m_config.extrude());
-				auto y = (uint16_t)(libnest2d::getY(box.minCorner()) - m_config.extrude());
+				auto x = (uint16_t)(libnest2d::getX(box.minCorner()));
+				auto y = (uint16_t)(libnest2d::getY(box.minCorner()));
+				
+
 
 				place_image_to(
-					item.image(),
+					item.image_ref(),
 					index,
 					x,
 					y,

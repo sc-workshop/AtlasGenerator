@@ -89,12 +89,12 @@ namespace wk
 					vertices.resize(4);
 
 					vertices[3].uv = { 0,												0 };
-					vertices[2].uv = { 0,												(uint16_t)current_size.y };
-					vertices[1].uv = { (uint16_t)current_size.x,					(uint16_t)current_size.y };
+					vertices[2].uv = { 0,												current_size.y };
+					vertices[1].uv = { (uint16_t)current_size.x,					current_size.y };
 					vertices[0].uv = { (uint16_t)current_size.x,					0 };
 
-					vertices[3].xy = { (uint16_t)crop_offset.x,								(uint16_t)crop_offset.y };
-					vertices[2].xy = { (uint16_t)crop_offset.x,								(uint16_t)(crop_offset.y + current_size.y) };
+					vertices[3].xy = { (uint16_t)crop_offset.x,							(uint16_t)crop_offset.y };
+					vertices[2].xy = { (uint16_t)crop_offset.x,							(uint16_t)(crop_offset.y + current_size.y) };
 					vertices[1].xy = { (uint16_t)(crop_offset.x + current_size.x),		(uint16_t)(crop_offset.y + current_size.y) };
 					vertices[0].xy = { (uint16_t)(crop_offset.x + current_size.x),		(uint16_t)crop_offset.y };
 
@@ -205,8 +205,6 @@ namespace wk
 					triangles.push_back(cutoff);
 				};
 
-			Rect bounding_box = { 0, 0, current_size.x, current_size.y };
-
 			calculate_triangle(Point(0, 0));
 			calculate_triangle(Point(current_size.x, 0));
 			calculate_triangle(Point(current_size.x, current_size.y));
@@ -227,10 +225,10 @@ namespace wk
 				// Polygon
 				PathD subject;
 				subject.reserve(4);
-				subject.emplace_back(0, 0);
-				subject.emplace_back(current_size.x, 0);
-				subject.emplace_back(current_size.x, current_size.y);
-				subject.emplace_back(0, current_size.y);
+				subject.emplace_back(0.0, 0.0);
+				subject.emplace_back((double)current_size.x, 0.0);
+				subject.emplace_back((double)current_size.x, (double)current_size.y);
+				subject.emplace_back(0.0, (double)current_size.y);
 
 				// Triangles
 				clip.reserve(triangles.size());
@@ -420,12 +418,7 @@ namespace wk
 		{
 			if (std::addressof(image()) == std::addressof(other.image())) return true;
 
-			if (!m_hash)
-			{
-				m_hash = m_image->hash();
-			}
-
-			if (m_hash != other.m_hash) return false;
+			if (hash() != other.hash()) return false;
 
 			return true;
 		}
@@ -578,6 +571,16 @@ namespace wk
 			}
 
 			return true;
+		}
+
+		std::size_t Item::hash() const
+		{
+			if (!m_hash)
+			{
+				m_hash = m_image->hash();
+			}
+
+			return m_hash;
 		}
 	}
 }
