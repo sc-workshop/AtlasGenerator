@@ -555,23 +555,23 @@ namespace wk
 				for (uint16_t w = 0; w < mask->width(); w++) {
 					if (dilate_mark >= mask->at<uint8_t>(w, h)) continue;
 
-					for (int r = -radius; r <= radius; ++r) {
+					for (int8_t r = -radius; r <= radius; ++r) {
 						int32_t dstW = w + r;
 						int32_t dstH = h + r;
 
 						if (dstW >= 0 && dstW < mask->width()) {
-							mask->at<uint8_t>(dstW, h) = dilate_mark;
+							mask->at<uint8_t>((uint16_t)dstW, h) = dilate_mark;
 						}
 						
 						if (dstH >= 0 && dstH < mask->height()) {
-							mask->at<uint8_t>(w, dstH) = dilate_mark;
+							mask->at<uint8_t>(w, (uint16_t)dstH) = dilate_mark;
 						}
 					}
 				}
 			}
 
-			for (int h = 0; h < mask->height(); h++) {
-				for (int w = 0; w < mask->width(); w++) {
+			for (uint16_t h = 0; h < mask->height(); h++) {
+				for (uint16_t w = 0; w < mask->width(); w++) {
 					uint8_t& pixel = mask->at<uint8_t>(w, h);
 
 					if (pixel == dilate_mark)
