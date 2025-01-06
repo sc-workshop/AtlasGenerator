@@ -115,6 +115,7 @@ namespace wk
 			void get_image_contour(RawImageRef& image, Container<Point>& result);
 
 			void normalize_mask(RawImageRef& mask, const Config& config);
+			void dilate_mask(RawImageRef& mask);
 
 			bool verify_vertices();
 

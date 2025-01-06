@@ -89,9 +89,9 @@ namespace wk
 					vertices.resize(4);
 
 					vertices[3].uv = { 0,												0 };
-					vertices[2].uv = { 0,												current_size.y };
-					vertices[1].uv = { (uint16_t)current_size.x,					current_size.y };
-					vertices[0].uv = { (uint16_t)current_size.x,					0 };
+					vertices[2].uv = { 0,												(uint16_t)current_size.y};
+					vertices[1].uv = { (uint16_t)current_size.x,						(uint16_t)current_size.y};
+					vertices[0].uv = { (uint16_t)current_size.x,						0 };
 
 					vertices[3].xy = { (uint16_t)crop_offset.x,							(uint16_t)crop_offset.y };
 					vertices[2].xy = { (uint16_t)crop_offset.x,							(uint16_t)(crop_offset.y + current_size.y) };
@@ -123,14 +123,17 @@ namespace wk
 			}
 
 			normalize_mask(alpha_mask, config);
-
 			Image::Bound crop_bound = alpha_mask->bound();
 			if (crop_bound.width <= 0) crop_bound.width = 1;
 			if (crop_bound.height <= 0) crop_bound.height = 1;
+			dilate_mask(alpha_mask);
 
 			// Image cropping by alpha
-			m_image = m_image->crop(crop_bound);
-			alpha_mask = alpha_mask->crop(crop_bound);
+			if (m_image->width() > crop_bound.width && m_image->height() > crop_bound.height)
+			{
+				m_image = m_image->crop(crop_bound);
+				alpha_mask = alpha_mask->crop(crop_bound);
+			}
 
 			current_size = alpha_mask->size();
 			crop_offset = PointF(
@@ -547,7 +550,10 @@ namespace wk
 					};
 				}
 			}
+		}
 
+		void Item::dilate_mask(RawImageRef& mask)
+		{
 			// Rect Dilate operation
 			const Point kernel_core = { 2, 2 };
 			const std::array<std::array<uint8_t, 5>, 5> kernel =
