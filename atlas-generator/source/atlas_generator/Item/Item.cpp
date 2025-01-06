@@ -126,10 +126,9 @@ namespace wk
 			Image::Bound crop_bound = alpha_mask->bound();
 			if (crop_bound.width <= 0) crop_bound.width = 1;
 			if (crop_bound.height <= 0) crop_bound.height = 1;
-			dilate_mask(alpha_mask);
 
 			// Image cropping by alpha
-			if (m_image->width() > crop_bound.width && m_image->height() > crop_bound.height)
+			if (m_image->width() > crop_bound.width || m_image->height() > crop_bound.height)
 			{
 				m_image = m_image->crop(crop_bound);
 				alpha_mask = alpha_mask->crop(crop_bound);
@@ -153,6 +152,8 @@ namespace wk
 			Container<Point> polygon;
 			{
 				Container<Point> contour;
+
+				dilate_mask(alpha_mask);
 				get_image_contour(alpha_mask, contour);
 
 				// Getting convex hull as base polygon for calculations
@@ -558,11 +559,11 @@ namespace wk
 			const Point kernel_core = { 2, 2 };
 			const std::array<std::array<uint8_t, 5>, 5> kernel =
 			{
-				0, 0, 0, 0,	0,
+				0, 0, 1, 0,	0,
 				0, 1, 1, 1, 0,
+				1, 1, 1, 1, 1,
 				0, 1, 1, 1, 0,
-				0, 1, 1, 1, 0,
-				0, 0, 0, 0, 0
+				0, 0, 1, 0, 0
 			};
 
 			const uint8_t dilate_mark = 2;
