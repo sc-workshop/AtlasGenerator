@@ -146,33 +146,103 @@ namespace wk
 			return true;
 		}
 
-		void Generator::place_image_to(RawImageRef src, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation)
+		void Generator::place_image_to(RawImageRef input, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation)
 		{
-			bool colorfill = src->width() == 1 && src->height() == 1;
-			if (colorfill)
+			//bool colorfill = src->width() == 1 && src->height() == 1;
+			//if (colorfill)
+			//{
+			//	x -= m_config.extrude() / 2;
+			//	y -= m_config.extrude() / 2;
+			//
+			//	ColorRGBA& color = src->at<ColorRGBA>(0, 0);
+			//	src = CreateRef<RawImage>(
+			//		(uint16_t)(m_config.extrude() + 1),
+			//		(uint16_t)(m_config.extrude() + 1),
+			//		Image::PixelDepth::RGBA8
+			//	);
+			//
+			//	for (uint16_t h = 0; src->height() > h; h++)
+			//	{
+			//		for (uint16_t w = 0; src->width() > w; w++)
+			//		{
+			//			ColorRGBA& pixel = src->at<ColorRGBA>(w, h);
+			//			pixel = color;
+			//		}
+			//	}
+			//}
+
+			const uint8_t extrude = m_config.extrude();
+			RawImageRef image = CreateRef<RawImage>(
+				input->width() + (extrude * 2),
+				input->height() + (extrude * 2),
+				input->depth(), input->colorspace()
+			);
+			x -= extrude;
+			y -= extrude;
+			
+			for (uint16_t h = 0; input->height() > h; h++)
 			{
-				x -= m_config.extrude() / 2;
-				y -= m_config.extrude() / 2;
-
-				ColorRGBA& color = src->at<ColorRGBA>(0, 0);
-				src = CreateRef<RawImage>(
-					(uint16_t)(m_config.extrude() + 1),
-					(uint16_t)(m_config.extrude() + 1),
-					Image::PixelDepth::RGBA8
-				);
-
-				for (uint16_t h = 0; src->height() > h; h++)
+				for (uint16_t w = 0; input->width() > w; w++)
 				{
-					for (uint16_t w = 0; src->width() > w; w++)
+					Memory::copy(input->at(w, h), image->at(w + extrude, h + extrude), input->pixel_size());
+				}
+			}
+
+			{
+				const uint16_t dstX = extrude;
+				const uint16_t dstY = image->width() - extrude - 1;
+				// left
+				for (uint16_t h = 0; image->height() > h; h++)
+				{
+					uint8_t* pixel = image->at(dstX, h);
+				
+					for (uint16_t i = 0; extrude > i; i++)
 					{
-						ColorRGBA& pixel = src->at<ColorRGBA>(w, h);
-						pixel = color;
+						Memory::copy(pixel, image->at(i, h), image->pixel_size());
+					}
+				}
+
+				// right
+				for (uint16_t h = 0; image->height() > h; h++)
+				{
+					uint8_t* pixel = image->at(dstY, h);
+				
+					for (uint16_t i = 0; extrude > i; i++)
+					{
+						Memory::copy(pixel, image->at(i + dstY + 1, h), image->pixel_size());
 					}
 				}
 			}
 
-			uint16_t width = src->width() - 1;
-			uint16_t height = src->height() - 1;
+			{
+				const uint16_t dstX = extrude;
+				const uint16_t dstY = image->height() - extrude - 1;
+				// bottom
+				for (uint16_t w = 0; image->width() > w; w++)
+				{
+					uint8_t* pixel = image->at(w, dstX);
+
+					for (uint16_t i = 0; extrude > i; i++)
+					{
+						Memory::copy(pixel, image->at(w, i), image->pixel_size());
+					}
+				}
+
+				// top
+				for (uint16_t w = 0; image->width() > w; w++)
+				{
+					uint8_t* pixel = image->at(w, dstY);
+				
+					for (uint16_t i = 0; extrude > i; i++)
+					{
+						Memory::copy(pixel, image->at(w, i + dstY + 1), image->pixel_size());
+					}
+				}
+			}
+			
+
+			uint16_t width = image->width() - 1;
+			uint16_t height = image->height() - 1;
 
 			auto rotate_pixel = [rotation, width, height](uint16_t x, uint16_t y) -> std::pair<uint16_t, uint16_t>
 				{
@@ -196,19 +266,18 @@ namespace wk
 			{
 			case wk::AtlasGenerator::Item::Rotation90:
 			case wk::AtlasGenerator::Item::Rotation270:
-				width = src->height() - 1;
-				height = src->width() - 1;
+				width = image->height() - 1;
+				height = image->width() - 1;
 				break;
 			default:
 				break;
 			}
 
 			auto& atlas = m_atlases[atlas_index];
-			uint8_t pixel_size = Image::PixelDepthTable[(uint16_t)atlas.depth()].byte_count;
 
-			for (uint16_t h = 0; src->height() > h; h++)
+			for (uint16_t h = 0; image->height() > h; h++)
 			{
-				for (uint16_t w = 0; src->width() > w; w++)
+				for (uint16_t w = 0; image->width() > w; w++)
 				{
 					uint16_t srcW = w;
 					uint16_t srcH = h;
@@ -226,10 +295,10 @@ namespace wk
 					if (0 > dstW || dstW >= atlas.width()) continue;
 					if (0 > dstH || dstH >= atlas.height()) continue;
 
-					uint8_t* pixel = src->at(w, h);
+					uint8_t* pixel = image->at(w, h);
 					uint8_t alpha = 255;
 
-					switch (src->base_type())
+					switch (image->base_type())
 					{
 					case Image::BasePixelType::RGBA:
 						alpha = (*(ColorRGBA*)pixel).a;
@@ -246,38 +315,7 @@ namespace wk
 						continue;
 					}
 
-					if (!colorfill)
-					{
-						if (srcW == 0 || srcW >= width)
-						{
-							bool direction = srcW == 0;
-							uint16_t border = dstW;
-							for (uint16_t i = 0; m_config.extrude() > i; i++)
-							{
-								direction ? border-- : border++;
-								if (border >= 0 && atlas.width() > border)
-								{
-									Memory::copy(pixel, atlas.at(border, dstH), pixel_size);
-								}
-							}
-						}
-
-						if (srcH == 0 || srcH >= height)
-						{
-							bool direction = srcH == 0;
-							uint16_t border = dstH;
-							for (uint16_t i = 0; m_config.extrude() > i; i++)
-							{
-								direction ? border-- : border++;
-								if (border >= 0 && atlas.height() > border)
-								{
-									Memory::copy(pixel, atlas.at(dstW, border), pixel_size);
-								}
-							}
-						}
-					}
-
-					Memory::copy(pixel, atlas.at(dstW, dstH), pixel_size);
+					Memory::copy(pixel, atlas.at(dstW, dstH), input->pixel_size());
 				}
 			}
 		};
