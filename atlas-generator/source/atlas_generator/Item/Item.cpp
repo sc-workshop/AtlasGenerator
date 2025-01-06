@@ -54,7 +54,7 @@ namespace wk
 		{
 			if (vertices.size() >= 1 && m_colorfill)
 			{
-				return vertices[0];
+				return vertices[vertices.size() - 1];
 			}
 
 			return std::nullopt;
