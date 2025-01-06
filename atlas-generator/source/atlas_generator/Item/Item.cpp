@@ -548,23 +548,42 @@ namespace wk
 				}
 			}
 
-			// Cross Dilate operation
-			const uint8_t radius = 1;
+			// Rect Dilate operation
+			const Point kernel_core = { 2, 2 };
+			const std::array<std::array<uint8_t, 5>, 5> kernel =
+			{
+				0, 0, 0, 0,	0,
+				0, 1, 1, 1, 0,
+				0, 1, 1, 1, 0,
+				0, 1, 1, 1, 0,
+				0, 0, 0, 0, 0
+			};
+
 			const uint8_t dilate_mark = 2;
 			for (uint16_t h = 0; h < mask->height(); h++) {
 				for (uint16_t w = 0; w < mask->width(); w++) {
 					if (dilate_mark >= mask->at<uint8_t>(w, h)) continue;
 
-					for (int8_t r = -radius; r <= radius; ++r) {
-						int32_t dstW = w + r;
-						int32_t dstH = h + r;
+					for (size_t yi = 0; kernel.size() > yi; yi++)
+					{
+						const auto& row = kernel[yi];
 
-						if (dstW >= 0 && dstW < mask->width()) {
-							mask->at<uint8_t>((uint16_t)dstW, h) = dilate_mark;
-						}
-						
-						if (dstH >= 0 && dstH < mask->height()) {
-							mask->at<uint8_t>(w, (uint16_t)dstH) = dilate_mark;
+						for (size_t xi = 0; row.size() > xi; xi++)
+						{
+							const auto& value = row[xi];
+							if (!value) continue;
+
+							int offsetX = (int)xi - kernel_core.x;
+							int offsetY = (int)yi - kernel_core.y;
+
+							if (!offsetX && !offsetY) continue;
+
+							int32_t dstW = w + offsetX;
+							int32_t dstH = h + offsetY;
+
+							if ((dstW >= 0 && dstW < mask->width()) && (dstH >= 0 && dstH < mask->height())) {
+								mask->at<uint8_t>((uint16_t)dstW, (uint16_t)dstH) = dilate_mark;
+							}
 						}
 					}
 				}
