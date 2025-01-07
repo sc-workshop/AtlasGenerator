@@ -148,29 +148,6 @@ namespace wk
 
 		void Generator::place_image_to(RawImageRef input, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation)
 		{
-			//bool colorfill = src->width() == 1 && src->height() == 1;
-			//if (colorfill)
-			//{
-			//	x -= m_config.extrude() / 2;
-			//	y -= m_config.extrude() / 2;
-			//
-			//	ColorRGBA& color = src->at<ColorRGBA>(0, 0);
-			//	src = CreateRef<RawImage>(
-			//		(uint16_t)(m_config.extrude() + 1),
-			//		(uint16_t)(m_config.extrude() + 1),
-			//		Image::PixelDepth::RGBA8
-			//	);
-			//
-			//	for (uint16_t h = 0; src->height() > h; h++)
-			//	{
-			//		for (uint16_t w = 0; src->width() > w; w++)
-			//		{
-			//			ColorRGBA& pixel = src->at<ColorRGBA>(w, h);
-			//			pixel = color;
-			//		}
-			//	}
-			//}
-
 			const uint8_t extrude = m_config.extrude();
 			RawImageRef image = CreateRef<RawImage>(
 				input->width() + (extrude * 2),

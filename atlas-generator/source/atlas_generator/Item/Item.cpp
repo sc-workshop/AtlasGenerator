@@ -127,6 +127,11 @@ namespace wk
 			if (crop_bound.width <= 0) crop_bound.width = 1;
 			if (crop_bound.height <= 0) crop_bound.height = 1;
 
+			{
+				OutputFileStream file("C:/Users/danii/Documents/test1.png");
+				stb::write_image(*alpha_mask, ".png", file);
+			}
+
 			// Image cropping by alpha
 			if (m_image->width() > crop_bound.width || m_image->height() > crop_bound.height)
 			{
@@ -152,9 +157,7 @@ namespace wk
 			Container<Point> polygon;
 			{
 				Container<Point> contour;
-
-				dilate_mask(alpha_mask);
-				get_image_contour(alpha_mask, contour);
+				get_image_contour(dilate_mask(alpha_mask), contour);
 
 				// Getting convex hull as base polygon for calculations
 				polygon = Hull::quick_hull(contour);
@@ -483,7 +486,7 @@ namespace wk
 			}
 		}
 
-		void Item::get_image_contour(RawImageRef& image, Container<Point>& result)
+		void Item::get_image_contour(RawImageRef image, Container<Point>& result)
 		{
 			for (Image::SizeT h = 0; image->height() > h; h++) {
 				for (Image::SizeT w = 0; image->width() > w; w++) {
@@ -493,7 +496,7 @@ namespace wk
 					// Iterate over black pixels only
 					if (pixel > 1)
 					{
-						if (h == 0 || w == 0 || h == image->height() - 1 || w == image->width() - 1)
+						if (h == 0 || w == 0 || h >= image->height() - 1 || w >= image->width() - 1)
 						{
 							result.emplace_back(w, h);
 							continue;
@@ -535,7 +538,7 @@ namespace wk
 			}
 		}
 
-		void Item::normalize_mask(RawImageRef& mask, const Config& config)
+		void Item::normalize_mask(RawImageRef mask, const Config& config)
 		{
 			// Pixel Normalize
 			for (uint16_t h = 0; mask->height() > h; h++) {
@@ -553,23 +556,24 @@ namespace wk
 			}
 		}
 
-		void Item::dilate_mask(RawImageRef& mask)
+		RawImageRef Item::dilate_mask(RawImageRef mask)
 		{
+			RawImageRef result = wk::CreateRef<RawImage>(mask->width(), mask->height(), mask->depth());
+
 			// Rect Dilate operation
 			const Point kernel_core = { 2, 2 };
 			const std::array<std::array<uint8_t, 5>, 5> kernel =
 			{
-				0, 0, 1, 0,	0,
-				0, 1, 1, 1, 0,
+				1, 1, 1, 1,	1,
 				1, 1, 1, 1, 1,
-				0, 1, 1, 1, 0,
-				0, 0, 1, 0, 0
+				1, 1, 1, 1, 1,
+				1, 1, 1, 1, 1,
+				1, 1, 1, 1, 1
 			};
 
-			const uint8_t dilate_mark = 2;
 			for (uint16_t h = 0; h < mask->height(); h++) {
 				for (uint16_t w = 0; w < mask->width(); w++) {
-					if (dilate_mark >= mask->at<uint8_t>(w, h)) continue;
+					if (mask->at<uint8_t>(w, h) != 0xFF) continue;
 
 					for (size_t yi = 0; kernel.size() > yi; yi++)
 					{
@@ -589,23 +593,14 @@ namespace wk
 							int32_t dstH = h + offsetY;
 
 							if ((dstW >= 0 && dstW < mask->width()) && (dstH >= 0 && dstH < mask->height())) {
-								mask->at<uint8_t>((uint16_t)dstW, (uint16_t)dstH) = dilate_mark;
+								result->at<uint8_t>((uint16_t)dstW, (uint16_t)dstH) = 0xFF;
 							}
 						}
 					}
 				}
 			}
 
-			for (uint16_t h = 0; h < mask->height(); h++) {
-				for (uint16_t w = 0; w < mask->width(); w++) {
-					uint8_t& pixel = mask->at<uint8_t>(w, h);
-
-					if (pixel == dilate_mark)
-					{
-						pixel = 0xFF;
-					}
-				}
-			}
+			return result;
 		}
 
 		bool Item::verify_vertices()
