@@ -1,8 +1,6 @@
 #include "atlas_generator/Item/Item.h"
 
 #include "core/math/triangle.h"
-#include "core/geometry/intersect.hpp"
-#include "core/geometry/convex.hpp"
 #include "core/stb/stb.h"
 #include "core/io/file_stream.h"
 
@@ -126,11 +124,6 @@ namespace wk
 			Image::Bound crop_bound = alpha_mask->bound();
 			if (crop_bound.width <= 0) crop_bound.width = 1;
 			if (crop_bound.height <= 0) crop_bound.height = 1;
-
-			{
-				OutputFileStream file("C:/Users/danii/Documents/test1.png");
-				stb::write_image(*alpha_mask, ".png", file);
-			}
 
 			// Image cropping by alpha
 			if (m_image->width() > crop_bound.width || m_image->height() > crop_bound.height)
@@ -496,9 +489,11 @@ namespace wk
 					// Iterate over black pixels only
 					if (pixel > 1)
 					{
-						if (h == 0 || w == 0 || h >= image->height() - 1 || w >= image->width() - 1)
+						bool edge_width = w >= image->width() - 1;
+						bool edge_height = h >= image->height() - 1;
+						if (h == 0 || w == 0 || edge_width || edge_height)
 						{
-							result.emplace_back(w, h);
+							result.emplace_back(edge_width ? w + 1 : w, edge_height ? h + 1 : h);
 							continue;
 						}
 					}

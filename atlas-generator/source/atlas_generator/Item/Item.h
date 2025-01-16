@@ -7,6 +7,8 @@
 #include "core/image/raw_image.h"
 #include "core/math/color_rgba.h"
 #include "core/memory/ref.h"
+#include "core/geometry/intersect.hpp"
+#include "core/geometry/convex.hpp"
 
 #include "Vertex.h"
 #include "atlas_generator/Config.h"

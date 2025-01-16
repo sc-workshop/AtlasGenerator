@@ -12,7 +12,7 @@ namespace wk
 		constexpr uint8_t MinExtrude = 0;
 		constexpr uint8_t MaxExtrude = 10;
 
-		constexpr float MinScaleFactor = 0.5f;
+		constexpr float MinScaleFactor = 0.25f;
 		constexpr float MaxScaleFactor = 10.0f;
 	}
 }
