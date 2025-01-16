@@ -1,17 +1,21 @@
-#include "AtlasGenerator/Generator.h"
+#include "atlas_generator/Generator.h"
 
+#include "core/stb/stb.h"
+#include "core/io/file_stream.h"
+
+#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <filesystem>
+#include <core/time/timer.h>
 namespace fs = std::filesystem;
 
-#include "AtlasGenerator/PackagingException.h"
-using namespace sc;
+#include "atlas_generator/PackagingException.h"
+using namespace wk;
+using namespace AtlasGenerator;
 
 #define print(message) std::cout << message << std::endl
-
-SC_CONSTRUCT_CHILD_EXCEPTION(GeneralRuntimeException, FolderAlreadyExistException, "Output folder already exists");
 
 void print_help(char* executable)
 {
@@ -57,19 +61,28 @@ public:
 			// Paths
 			if (!fs::exists(argument))
 			{
-				print("Unknown or wrong agument" << argument);
+				print("Unknown or wrong agument " << argument);
 			}
+
+			auto valid_path = [](fs::path path)
+				{
+					if (path.extension() == ".png") return true;
+
+					return false;
+				};
 
 			if (fs::is_directory(argument))
 			{
 				for (fs::path path : fs::directory_iterator(argument))
 				{
-					files.push_back(path);
+					if (valid_path(path))
+						files.push_back(path);
 				}
 			}
 			else
 			{
-				files.push_back(argument);
+				if (valid_path(argument))
+					files.push_back(argument);
 			}
 		}
 	}
@@ -91,15 +104,47 @@ public:
 
 #pragma region CV Debug Functions
 
+void grayAlpha_to_rgba(cv::Mat& input, cv::Mat& output)
+{
+	cv::Mat gray, gray_alpha;
+
+	cv::extractChannel(input, gray, 0);
+	cv::extractChannel(input, gray_alpha, 1);
+
+	std::vector<cv::Mat> channels({ gray, gray, gray, gray_alpha });
+
+	cv::merge(channels, output);
+}
+
 void ShowImage(std::string name, cv::Mat& image) {
 	cv::namedWindow(name, cv::WINDOW_NORMAL);
 
-	cv::imshow(name, image);
+	if (image.channels() == 2)
+	{
+		cv::Mat result;
+		grayAlpha_to_rgba(image, result);
+		cv::imshow(name, result);
+	}
+	else
+	{
+		cv::imshow(name, image);
+	}
+
 	cv::waitKey(0);
 }
 
-void ShowContour(cv::Mat& src, std::vector<cv::Point>& points) {
+void ShowContour(cv::Mat& src, std::vector<cv::Point> points) {
+	const float scale_factor = 8.0f;
+
 	cv::Mat drawing = src.clone();
+	cv::resize(drawing, drawing, cv::Size(), scale_factor, scale_factor, cv::INTER_NEAREST);
+
+	for (cv::Point& point : points)
+	{
+		point.x *= scale_factor;
+		point.y *= scale_factor;
+	}
+
 	drawContours(
 		drawing,
 		std::vector<std::vector<cv::Point>>(1, points),
@@ -123,6 +168,16 @@ void ShowContour(cv::Mat& src, std::vector<cv::Point>& points) {
 	cv::destroyAllWindows();
 }
 
+
+void ShowContour(cv::Mat& src, std::vector<wk::Point>& points) {
+	std::vector<cv::Point> cvPoints;
+	for (auto& point : points) {
+		cvPoints.push_back({ point.x, point.y });
+	}
+
+	ShowContour(src, cvPoints);
+}
+
 void ShowContour(cv::Mat& src, std::vector<AtlasGenerator::Vertex>& points) {
 	std::vector<cv::Point> cvPoints;
 	for (auto& point : points) {
@@ -131,6 +186,7 @@ void ShowContour(cv::Mat& src, std::vector<AtlasGenerator::Vertex>& points) {
 
 	ShowContour(src, cvPoints);
 }
+
 #pragma endregion
 
 void process(ProgramOptions& options)
@@ -143,7 +199,7 @@ void process(ProgramOptions& options)
 		}
 		else
 		{
-			throw FolderAlreadyExistException();
+			throw Exception("Folder already exist");
 		}
 	}
 
@@ -153,19 +209,35 @@ void process(ProgramOptions& options)
 	std::ofstream atlas_data(atlas_data_output);
 
 	std::vector<AtlasGenerator::Item> items;
+	items.reserve(options.files.size());
 
-	std::map<size_t, Rect<int32_t>> guides;
-	std::map<size_t, AtlasGenerator::Item::Transformation> guide_transform;
+	std::map<size_t, Rect> guides;
+	std::map<size_t, AtlasGenerator::Item::Transformation> guide_transforms;
 
 	for (fs::path& path : options.files)
 	{
 		if (path.extension() != ".png") continue;
 
+		std::string basename = fs::path(path.filename()).replace_extension().string();
 		fs::path guide_path = fs::path(path).replace_extension().concat("_guide.txt");
 
 		if (!fs::exists(guide_path))
 		{
-			items.emplace_back(path);
+			if (basename.size() > 3 && basename.substr(basename.size() - 3)== "_la")
+			{
+				InputFileStream file(path);
+				RawImageRef image;
+				stb::load_image(file, image);
+
+				RawImage gray(image->width(), image->height(), Image::PixelDepth::LUMINANCE8_ALPHA8);
+				image->copy(gray);
+
+				items.emplace_back(gray);
+			}
+			else
+			{
+				items.emplace_back(path);
+			}
 		}
 		else
 		{
@@ -182,67 +254,85 @@ void process(ProgramOptions& options)
 
 			if (guide.size() != 4) continue;
 
-			guides[items.size()] = Rect<int32_t>(
+			guides[items.size()] = Rect(
 				(int32_t)ceil(guide[0]), (int32_t)ceil(guide[3]),
 				(int32_t)ceil(guide[1]), (int32_t)ceil(guide[2])
 				);
 
-			AtlasGenerator::Item item(path, AtlasGenerator::Item::Type::Sliced);
+			AtlasGenerator::Item item(path, true);
 
 			AtlasGenerator::Item::Transformation transform(
 				0.0,
-				Point<int32_t>(-(item.width() / 2), -(item.height() / 2))
+				Point(-(item.width() / 2), -(item.height() / 2))
 			);
 
-			guide_transform[items.size()] = transform;
+			guide_transforms[items.size()] = transform;
 
 			items.push_back(item);
 		}
 	}
-	uint8_t scale_factor = 2;
+
+	//std::vector<cv::Mat> original_images;
+	//if (options.is_item_debug)
+	//{
+	//	for (Item& item : items)
+	//	{
+	//		original_images.emplace_back(item.image());
+	//	}
+	//}
+
+	uint8_t scale_factor = 1;
 	AtlasGenerator::Config config(
-		AtlasGenerator::Config::TextureType::RGBA,
 		4096, 4096,
 		scale_factor, 2
 	);
 
-	config.progress = [&items](unsigned count)
+	config.progress = [&items](size_t count)
 	{
-		print(count << " \\ " << items.size());
+		std::cout << std::string(100, '\b') << count + 1 << "\\" << items.size() << std::flush;
 	};
 
+	size_t bin_count = 0;
 	AtlasGenerator::Generator generator(config);
-	uint8_t bin_count = 0;
-	try
 	{
-		bin_count = generator.generate(items);
-	}
-	catch (const AtlasGenerator::PackagingException& exception)
-	{
-		size_t item_index = exception.index();
-		if (item_index == SIZE_MAX)
+		Timer timer;
+		std::cout << "0\\" << items.size();
+		try
 		{
-			std::cout << "Unknown package exception" << std::endl;
+			bin_count = generator.generate(items);
+			std::cout << std::endl;
 		}
-		else
+		catch (const AtlasGenerator::PackagingException& exception)
 		{
-			std::cout << "Failed to package item \"" << options.files[item_index] << "\"" << std::endl;
+			std::cout << std::endl;
+			size_t item_index = exception.index();
+			if (item_index == SIZE_MAX)
+			{
+				std::cout << "Unknown package exception" << std::endl;
+			}
+			else
+			{
+				std::cout << "Failed to package item \"" << options.files[item_index] << "\"" << std::endl;
+			}
+			std::cout << exception.what() << std::endl;
+			return;
 		}
-		std::cout << exception.message() << std::endl;
-	}
-	catch (const sc::GeneralRuntimeException& exception)
-	{
-		std::cout << exception.message() << std::endl;
+		catch (const std::exception& exception)
+		{
+			std::cout << std::endl;
+			std::cout << exception.what() << std::endl;
+			return;
+		}
+		print("Packaging done by " << timer.elapsed() / 1000 << "s");
 	}
 
 	for (uint8_t i = 0; bin_count > i; i++)
 	{
-		cv::Mat& image = generator.get_atlas(i);
+		RawImage& image = generator.get_atlas(i);
+		std::string destination = fs::path(options.output / fs::path("atlas_").concat(std::to_string(i)).concat(".png")).string();
 
-		cv::imwrite(
-			fs::path(options.output / fs::path("atlas_").concat(std::to_string(i)).concat(".png")).string(),
-			image
-		);
+		wk::OutputFileStream file(destination);
+		wk::stb::write_image(image, wk::stb::ImageFormat::PNG, file);
 	}
 
 	for (size_t i = 0; items.size() > i; i++)
@@ -285,21 +375,56 @@ void process(ProgramOptions& options)
 		cv::RNG rng = cv::RNG(time(NULL));
 
 		for (uint8_t i = 0; bin_count > i; i++) {
-			cv::Mat& atlas = generator.get_atlas(i);
-			sheets.emplace_back(
-				atlas.size(),
-				CV_8UC4,
-				cv::Scalar(0)
+			RawImage& atlas = generator.get_atlas(i);
+
+			int type = 0;
+			switch (atlas.depth())
+			{
+			case Image::PixelDepth::RGBA8:
+				type = CV_8UC4;
+				break;
+			case Image::PixelDepth::RGB8:
+				type = CV_8UC3;
+				break;
+			case Image::PixelDepth::LUMINANCE8_ALPHA8:
+				type = CV_8UC2;
+				break;
+			case Image::PixelDepth::LUMINANCE8:
+				type = CV_8UC1;
+				break;
+			}
+
+			cv::Mat& mat = sheets.emplace_back(
+				cv::Mat(atlas.height(), atlas.width(), type,
+				atlas.data())
 			);
+
+			switch (atlas.depth())
+			{
+			case Image::PixelDepth::RGBA8:
+				cv::cvtColor(mat, mat, cv::COLOR_RGBA2BGRA);
+				break;
+			case Image::PixelDepth::RGB8:
+				cv::cvtColor(mat, mat, cv::COLOR_RGB2BGR);
+				break;
+			default:
+				break;
+			}
+		}
+
+		for (uint8_t i = 0; bin_count > i; i++) {
+			ShowImage("Atlas", sheets[i]);
 		}
 
 		for (size_t i = 0; items.size() > i; i++) {
 			AtlasGenerator::Item& item = items[i];
+			Item::Transformation& transform = item.transform;
 			std::vector<cv::Point> atlas_contour;
 			std::vector<cv::Point> item_contour;
+			fs::path& path = options.files[i];
 
 			for (AtlasGenerator::Vertex vertex : item.vertices) {
-				item.transform.transform_point(vertex.uv);
+				transform.transform_point(vertex.uv);
 
 				atlas_contour.push_back(cv::Point(vertex.uv.x, vertex.uv.y));
 				item_contour.push_back(cv::Point(vertex.xy.x, vertex.xy.y));
@@ -309,86 +434,10 @@ void process(ProgramOptions& options)
 				cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 				fillPoly(sheets[item.texture_index], atlas_contour, color);
 			}
-
-			if (options.is_item_debug)
-			{
-				cv::Mat image_contour(item.image().size(), CV_8UC4, cv::Scalar(0));
-				{
-					cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-					fillPoly(image_contour, item_contour, color);
-				}
-
-				std::vector<cv::Mat> matrices = {
-					image_contour, item.image()
-				};
-
-				if (item.is_sliced())
-				{
-					cv::Mat sliced_image(item.image().size(), CV_8UC4, cv::Scalar(0));
-					for (uint8_t area_index = (uint8_t)AtlasGenerator::Item::SlicedArea::BottomLeft; (uint8_t)AtlasGenerator::Item::SlicedArea::TopRight >= area_index; area_index++)
-					{
-						Rect<int32_t> xy;
-						Rect<uint16_t> uv;
-
-						item.get_sliced_area(
-							(AtlasGenerator::Item::SlicedArea)area_index,
-							guides[i],
-							xy, uv,
-							guide_transform[i]
-						);
-
-						if (xy.width > 0 && xy.height > 0)
-						{
-							{
-								cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-
-								auto points = std::vector<cv::Point>{
-										cv::Point(xy.x - guide_transform[i].translation.x, xy.y - guide_transform[i].translation.y),
-										cv::Point((xy.x - guide_transform[i].translation.x) + xy.width, xy.y - guide_transform[i].translation.y),
-										cv::Point((xy.x - guide_transform[i].translation.x) + xy.width, (xy.y - guide_transform[i].translation.y) + xy.height),
-										cv::Point(xy.x - guide_transform[i].translation.x, (xy.y - guide_transform[i].translation.y) + xy.height),
-								};
-								fillPoly(
-									sliced_image,
-									points,
-									color
-								);
-							}
-
-							{
-								auto points = std::vector<cv::Point>{
-										cv::Point(uv.x, uv.y),
-										cv::Point(uv.x + uv.width, uv.y),
-										cv::Point(uv.x + uv.width, uv.y + uv.height),
-										cv::Point(uv.x, uv.y + uv.height)
-								};
-
-								cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-								fillPoly(sheets[item.texture_index], points, color);
-							}
-						}
-					}
-					matrices.push_back(sliced_image);
-				}
-
-				{
-					cv::Mat canvas;
-					cv::hconcat(matrices, canvas);
-					ShowImage("Item", canvas);
-				}
-			}
 		}
 
 		for (cv::Mat& sheet : sheets) {
 			ShowImage("Sheet", sheet);
-		}
-
-		for (uint8_t i = 0; bin_count > i; i++) {
-			ShowImage("Atlas", generator.get_atlas(i));
-		}
-
-		if (options.is_item_debug)
-		{
 		}
 
 		cv::destroyAllWindows();
@@ -409,9 +458,9 @@ int main(int argc, char* argv[])
 	{
 		process(options);
 	}
-	catch (const GeneralRuntimeException& exception)
+	catch (const std::exception& exception)
 	{
-		print(exception.message());
+		print(exception.what());
 		return 1;
 	}
 

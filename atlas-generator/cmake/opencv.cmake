@@ -1,26 +1,5 @@
 include(FetchContent)
 
-set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-
-# Basic Types & Defintions
-FetchContent_Declare(
-    SupercellCore
-    GIT_REPOSITORY https://github.com/sc-workshop/SC-Core
-    GIT_TAG main
-)
-
-FetchContent_MakeAvailable(SupercellCore)
-
-# Polygon Packing
-set(RP_ENABLE_DOWNLOADING ON)
-FetchContent_Declare(
-    libnest2d
-    GIT_REPOSITORY https://github.com/tamasmeszaros/libnest2d.git
-    GIT_TAG master
-)
-FetchContent_MakeAvailable(libnest2d)
-
-# Image Processing
 set(OPENCV_FORCE_3RDPARTY_BUILD ON)
 set(WITH_OPENMP ON)
 set(WITH_NVCUVENC OFF)
@@ -48,15 +27,33 @@ set(BUILD_ANDROID_EXAMPLES OFF)
 set(BUILD_DOCS OFF)
 set(BUILD_PACKAGE OFF)
 set(BUILD_JAVA OFF)
+set(BUILD_WITH_STATIC_CRT OFF)
+set(BUILD_opencv_python2 OFF)
+set(BUILD_opencv_python3 OFF)
+set(OPENCV_PYTHON_SKIP_DETECTION ON)
+set(WITH_IMGCODEC_SUNRASTER OFF)
+set(WITH_OPENEXR OFF)
+set(WITH_FLATBUFFERS OFF)
+set(WITH_IMGCODEC_HDR OFF)
+set(WITH_ADE OFF)
 
 if (NOT DEFINED BUILD_LIST OR NOT BUILD_LIST)
-    set(BUILD_LIST "imgproc,imgcodecs")
+    set(WITH_WIN32UI OFF)
+    
+
+    if (${BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS})
+        set(BUILD_LIST "core;imgproc;imgcodecs" CACHE STRING "")
+        
+    else()
+        set(BUILD_LIST "core;imgproc" CACHE STRING "")
+    endif()
+
 endif()
 
 FetchContent_Declare(
         opencv
         GIT_REPOSITORY https://github.com/opencv/opencv.git
-        GIT_TAG 4.9.0
+        GIT_TAG 4.10.0
         GIT_SHALLOW TRUE
         GIT_PROGRESS TRUE
 )

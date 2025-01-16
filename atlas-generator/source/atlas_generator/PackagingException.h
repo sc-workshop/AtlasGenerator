@@ -1,12 +1,12 @@
 #pragma once
 
-#include "exception/GeneralRuntimeException.h"
+#include "core/exception/exception.h"
 
-namespace sc
+namespace wk
 {
 	namespace AtlasGenerator
 	{
-		class PackagingException : public GeneralRuntimeException
+		class PackagingException : public std::exception
 		{
 		public:
 			enum class Reason
@@ -16,10 +16,13 @@ namespace sc
 				UnsupportedImage,
 				InvalidPolygon
 			};
+
 		public:
 			PackagingException(Reason reason, size_t item_index = SIZE_MAX)
-				: GeneralRuntimeException("PackagingException"), m_reason(reason), m_item_index(item_index)
 			{
+				m_reason = reason;
+				m_item_index = item_index;
+
 				switch (reason)
 				{
 				case Reason::TooBigImage:
@@ -46,7 +49,11 @@ namespace sc
 			{
 				return m_item_index;
 			};
+
+			const char* what() const noexcept override { return m_message.c_str(); }
+
 		private:
+			std::string m_message;
 			Reason m_reason;
 			size_t m_item_index;
 		};
