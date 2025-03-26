@@ -61,6 +61,114 @@ namespace wk
 #endif
 			cfg.selector_config.verify_items = false;
 			//cfg.selector_config.texture_parallel_hard = m_config.parallel();
+			cfg.placer_config.rotation_callback = [&cfg](const libnest2d::Item& item)
+			{
+				auto& shape = item.rawShape();
+				{
+					size_t poly_dist = 0;
+					size_t count = shape.Contour.size() - 1;
+					bool is_straight = true;
+					for (size_t i = 0; count > i; i++)
+					{
+						auto& p1 = shape.Contour[i];
+						auto& p2 = shape.Contour[(i + 1) % count];
+						size_t distance = wk::Geometry::dist<ClipperLib::cInt, ClipperLib::cInt>({ p1.X, p1.Y }, { p2.X, p2.Y });
+
+						if (i != 0)
+						{
+							if (distance != poly_dist)
+							{
+								is_straight = false;
+								break;
+							}
+						}
+						else
+						{
+							poly_dist = distance;
+						}
+					}
+
+					if (is_straight)
+					{
+						return std::vector<libnest2d::Radians>{ 0.0 };
+					}
+				}
+
+				Point_t<int> centroid;
+				{
+					int32_t cx = 0, cy = 0;
+					int n = shape.Contour.size() - 1;
+					for (const auto& p : shape.Contour) {
+						cx += p.X;
+						cy += p.Y;
+					}
+					centroid = { (int)std::ceil(cx / n), (int)std::ceil(cy / n)};
+				}
+
+				bool symmetry_x = true;
+				bool symmetry_y = true;
+
+				std::vector<libnest2d::Radians> result{ 0.0 };
+				result.reserve(cfg.placer_config.rotations.size());
+
+				size_t count = shape.Contour.size() - 1;
+				for (size_t i = 0; count > i; i++)
+				{
+					const auto& p = shape.Contour[i];
+					bool hasMirror = false;
+					for (size_t t = 0; count > t; t++)
+					{
+						if (i == t) continue;
+
+						const auto& q = shape.Contour[t];
+						if (p.X == q.X && abs(p.Y + q.Y - 2 * centroid.y) == 0) {
+							hasMirror = true;
+							break;
+						}
+					}
+
+					if (!hasMirror)
+					{
+						symmetry_x = false;
+						break;
+					}
+				}
+
+				for (size_t i = 0; count > i; i++)
+				{
+					const auto& p = shape.Contour[i];
+					bool hasMirror = false;
+					for (size_t t = 0; count > t; t++)
+					{
+						if (i == t) continue;
+
+						const auto& q = shape.Contour[t];
+						if (abs(p.X + q.X - (2 * centroid.x)) == 0 && p.Y == q.Y) {
+							hasMirror = true;
+							break;
+						}
+					}
+
+					if (!hasMirror)
+					{
+						symmetry_y = false;
+						break;
+					}
+				}
+
+				if (!symmetry_x)
+				{
+					result.push_back(libnest2d::Pi);
+				}
+
+				if (!symmetry_y)
+				{
+					result.push_back(libnest2d::Pi / 2.0);
+					result.push_back(3 * libnest2d::Pi / 2);
+				}
+
+				return result;
+			};
 
 			libnest2d::NestControl control;
 			if (m_config.progress)

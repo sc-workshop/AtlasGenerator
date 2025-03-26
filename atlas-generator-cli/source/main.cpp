@@ -17,7 +17,7 @@ using namespace AtlasGenerator;
 
 #define print(message) std::cout << message << std::endl
 
-void print_help(char* executable)
+static void print_help(char* executable)
 {
 	print("Sc Atlas Generator Command Line App: ");
 	print("Usage: " << executable << " [Folder name with output] ...args");
@@ -323,7 +323,7 @@ void process(ProgramOptions& options)
 			std::cout << exception.what() << std::endl;
 			return;
 		}
-		print("Packaging done by " << timer.elapsed() / 1000 << "s");
+		print("Packaging done by " << (double)timer.elapsed() / 1000 << "s");
 	}
 
 	for (uint8_t i = 0; bin_count > i; i++)
