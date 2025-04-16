@@ -181,7 +181,11 @@ namespace wk {
 			bool pack_items(Image::PixelDepth atlas_type);
 
 		public:
-			void place_image_to(RawImageRef src, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation);
+			static void place_image_to(const Config& config,
+				const RawImage& input,
+				uint16_t x, uint16_t y,
+				Item::FixedRotation rotation,
+				RawImage& atlas);
 
 			static bool validate_image(const RawImage& image);
 

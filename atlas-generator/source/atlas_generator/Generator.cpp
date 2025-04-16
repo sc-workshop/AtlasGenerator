@@ -243,33 +243,40 @@ namespace wk
 				auto y = (uint16_t)(libnest2d::getY(box.minCorner()));
 
 				place_image_to(
-					item.image_ref(),
-					index,
+					m_config,
+					*item.image_ref(),
 					x,
 					y,
-					(Item::FixedRotation)rotation_degree
+					(Item::FixedRotation)rotation_degree,
+					m_atlases[item.texture_index]
 				);
 			}
 
 			return true;
 		}
 
-		void Generator::place_image_to(RawImageRef input, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation)
+		void Generator::place_image_to(
+			const Config& config,
+			const RawImage& input,
+			uint16_t x, uint16_t y,
+			Item::FixedRotation rotation,
+			RawImage& atlas
+		)
 		{
-			const uint8_t extrude = m_config.extrude();
+			const uint8_t extrude = config.extrude();
 			RawImageRef image = CreateRef<RawImage>(
-				input->width() + (extrude * 2),
-				input->height() + (extrude * 2),
-				input->depth(), input->colorspace()
+				input.width() + (extrude * 2),
+				input.height() + (extrude * 2),
+				input.depth(), input.colorspace()
 			);
 			x -= extrude;
 			y -= extrude;
 			
-			for (uint16_t h = 0; input->height() > h; h++)
+			for (uint16_t h = 0; input.height() > h; h++)
 			{
-				for (uint16_t w = 0; input->width() > w; w++)
+				for (uint16_t w = 0; input.width() > w; w++)
 				{
-					Memory::copy(input->at(w, h), image->at(w + extrude, h + extrude), input->pixel_size());
+					Memory::copy(input.at(w, h), image->at(w + extrude, h + extrude), input.pixel_size());
 				}
 			}
 
@@ -358,8 +365,6 @@ namespace wk
 				break;
 			}
 
-			auto& atlas = m_atlases[atlas_index];
-
 			for (uint16_t h = 0; image->height() > h; h++)
 			{
 				for (uint16_t w = 0; image->width() > w; w++)
@@ -395,12 +400,12 @@ namespace wk
 						break;
 					}
 
-					if (m_config.alpha_threshold() > alpha)
+					if (config.alpha_threshold() > alpha)
 					{
 						continue;
 					}
 
-					Memory::copy(pixel, atlas.at(dstW, dstH), input->pixel_size());
+					Memory::copy(pixel, atlas.at(dstW, dstH), input.pixel_size());
 				}
 			}
 		};
