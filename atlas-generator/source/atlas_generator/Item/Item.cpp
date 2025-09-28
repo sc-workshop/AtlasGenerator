@@ -77,7 +77,7 @@ namespace wk
 		{
 			using namespace wk::Geometry;
 
-			float scale_factor = is_sliced() ? 1.0f : config.scale();
+			float scale_factor = is_sliced() ? 1.0f : 1.f / config.scale();
 			Image::Size full_size = m_image->size();
 			Image::Size current_size = full_size;
 			PointF crop_offset(0.0f, 0.0f);

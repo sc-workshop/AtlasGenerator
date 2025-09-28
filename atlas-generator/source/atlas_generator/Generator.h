@@ -128,9 +128,8 @@ namespace wk {
 #endif // !WK_DEBUG
 
 				parallel::enumerate(
-					m_items.begin(), m_items.end(), [&](std::reference_wrapper<Item>& item_ref, size_t)
+					m_items.begin(), m_items.end(), [&](Item& item, size_t)
 					{
-						Item& item = item_ref;
 						if (item.status() == Item::Status::Unset)
 						{
 							item.generate_image_polygon(m_config);
