@@ -102,8 +102,8 @@ namespace wk
 
 		public:
 			void get_9slice(
-				const Rect& guide,
-				Container<Container<Vertex>>& vertices,
+				const RectF& guide,
+				Container<Container<VertexF>>& vertices,
 				const Transformation xy_transform = Transformation()
 			) const;
 

@@ -313,8 +313,8 @@ namespace wk
 		}
 
 		void Item::get_9slice(
-			const Rect& guide,
-			Container<Container<Vertex>>& result,
+			const RectF& guide,
+			Container<Container<VertexF>>& result,
 			const Transformation xy_transform
 		) const
 		{
@@ -358,10 +358,10 @@ namespace wk
 					);
 				}
 
-				constexpr int min = std::numeric_limits<int>::min();
-				constexpr int max = std::numeric_limits<int>::max();
+				constexpr float min = (float)std::numeric_limits<int>::min();
+				constexpr float max = (float)std::numeric_limits<int>::max();
 
-				const Container<Rect> rects = {
+				const Container<RectF> rects = {
 					{min, min, guide.left, guide.bottom},															// Left-Top
 					{min, guide.bottom, guide.left, guide.top},														// Top-Middle
 					{guide.left, guide.top, min, max},																// Right-Top
@@ -376,7 +376,7 @@ namespace wk
 
 				};
 
-				for (const Rect& rect : rects)
+				for (const RectF& rect : rects)
 				{
 					PathD path;
 
@@ -385,20 +385,20 @@ namespace wk
 					path.emplace_back(rect.top, rect.right);
 					path.emplace_back(rect.top, rect.left);
 
-					PathsD solution = Intersect({ subject }, { path }, FillRule::NonZero);
+					PathsD solution = Intersect({ subject }, { path }, FillRule::NonZero, 8);
 					result_solution.insert(result_solution.end(), solution.begin(), solution.end());
 				}
 			}
 
 			for (PathD& path : result_solution)
 			{
-				Container<Vertex>& result_path = result.emplace_back();
+				Container<VertexF>& result_path = result.emplace_back();
 				for (const PointD& path_vertex : path)
 				{
-					Vertex& vertex = result_path.emplace_back();
+					VertexF& vertex = result_path.emplace_back();
 
-					vertex.xy.x = (int)path_vertex.x;
-					vertex.xy.y = (int)path_vertex.y;
+					vertex.xy.x = (float)path_vertex.x;
+					vertex.xy.y = (float)path_vertex.y;
 
 					// Remap xy to uv map
 

@@ -10,19 +10,31 @@ namespace wk
 	namespace AtlasGenerator
 	{
 		using Rect = Rect_t<int32_t>;
+		using RectF = Rect_t<float>;
 		using Point = Point_t<int32_t>;
 
 		using RectUV = Rect_t<uint16_t>;
 		using PointUV = Point_t<uint16_t>;
 
-		class Vertex {
+		template<typename T>
+		class Vertex_t {
 		public:
-			Vertex();
-			Vertex(int32_t x, int32_t y, uint16_t u, uint16_t v);
+			Vertex_t() {
+				xy = Point_t<T>(0, 0);
+				uv = PointUV(0, 0);
+			};
+
+			Vertex_t(T x, T y, uint16_t u, uint16_t v) {
+				xy = Point_t<T>(x, y);
+				uv = PointUV(u, v);
+			};
 
 		public:
 			PointUV uv;
-			Point xy;
+			Point_t<T> xy;
 		};
+
+		using Vertex = Vertex_t<int32_t>;
+		using VertexF = Vertex_t<float>;
 	}
 }
