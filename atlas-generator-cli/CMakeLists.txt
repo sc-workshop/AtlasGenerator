@@ -11,28 +11,20 @@ wk_project_setup(${TARGET})
 
 target_link_libraries(${TARGET} PUBLIC 
     AtlasGenerator
+    OpenCV
 )
 
 add_compile_options(
-    $<$<AND:${SC_MSVC},${SC_DEBUG}>: /DEBUG:FASTLINK>
+    $<$<AND:${WK_MSVC},${WK_DEBUG}>: /DEBUG:FASTLINK>
 )
 
 set_target_properties(${TARGET} PROPERTIES
     FOLDER WorkshopSDK/CLI
 )
 
-foreach(lib IN LISTS BUILD_LIST)
-    target_link_libraries(${TARGET} PUBLIC 
-        opencv_${lib}
+if (MSVC)
+    add_custom_command(TARGET ${TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${TARGET}> $<TARGET_FILE_DIR:${TARGET}>
+        COMMAND_EXPAND_LISTS
     )
-
-    target_include_directories(${TARGET}
-        PUBLIC
-        ${OPENCV_MODULE_opencv_${lib}_LOCATION}/include
-    )
-endforeach()
-
-add_custom_command(TARGET ${TARGET} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${TARGET}> $<TARGET_FILE_DIR:${TARGET}>
-    COMMAND_EXPAND_LISTS
-)
+endif()

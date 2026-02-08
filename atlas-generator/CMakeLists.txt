@@ -21,14 +21,14 @@ target_link_libraries(${TARGET} PUBLIC
 # Private dependencies
 target_link_libraries(${TARGET} PUBLIC 
     libnest2d
-    Clipper2
+    Clipper2::Clipper2
 )
 
 target_include_directories(${TARGET}
     PUBLIC
     "source/"
     ${OPENCV_CONFIG_FILE_INCLUDE_DIR}
-    ${opencv_SOURCE_DIR}/include
+    ${OpenCV_SOURCE_DIR}/include
 )
 
 set_target_properties(${TARGET} PROPERTIES

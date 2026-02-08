@@ -37,24 +37,41 @@ set(WITH_FLATBUFFERS OFF)
 set(WITH_IMGCODEC_HDR OFF)
 set(WITH_ADE OFF)
 
-if (NOT DEFINED BUILD_LIST OR NOT BUILD_LIST)
+if(NOT DEFINED BUILD_LIST OR NOT BUILD_LIST)
     set(WITH_WIN32UI OFF)
-    
 
-    if (${BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS})
+    if(${BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS})
         set(BUILD_LIST "core;imgproc;imgcodecs" CACHE STRING "")
-        
+
     else()
         set(BUILD_LIST "core;imgproc" CACHE STRING "")
     endif()
 
 endif()
 
-FetchContent_Declare(
-        opencv
+find_package(OpenCV 4 REQUIRED QUIET)
+if (OpenCV_FOUND)
+    message(STATUS "Found OpenCV: ${OpenCV_INCLUDE_DIRS}")
+else()
+    FetchContent_Declare(
+        OpenCV
         GIT_REPOSITORY https://github.com/opencv/opencv.git
         GIT_TAG 4.10.0
         GIT_SHALLOW TRUE
         GIT_PROGRESS TRUE
-)
-FetchContent_MakeAvailable(opencv)
+    )
+    FetchContent_MakeAvailable(OpenCV)
+endif()
+
+add_library(OpenCV INTERFACE)
+target_include_directories(OpenCV INTERFACE ${OpenCV_INCLUDE_DIRS})
+foreach(lib IN LISTS BUILD_LIST)
+    target_link_libraries(OpenCV INTERFACE 
+        opencv_${lib}
+    )
+
+    target_include_directories(OpenCV
+        INTERFACE
+        ${OPENCV_MODULE_opencv_${lib}_LOCATION}/include
+    )
+endforeach()

@@ -392,6 +392,8 @@ void process(ProgramOptions& options)
 			case Image::PixelDepth::LUMINANCE8:
 				type = CV_8UC1;
 				break;
+            default:
+                continue;
 			}
 
 			cv::Mat& mat = sheets.emplace_back(

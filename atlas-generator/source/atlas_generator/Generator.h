@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <stdint.h>
 #include <numeric>
-#include <execution>
 #include <cmath>
 
 #include "Config.h"
@@ -13,6 +12,7 @@
 #include "PackagingException.h"
 #include "Item/Iterator.h"
 #include "core/parallel/enumerate.h"
+#include "core/algorithm/find.hpp"
 
 namespace wk {
 	namespace AtlasGenerator
@@ -102,7 +102,7 @@ namespace wk {
 					{
 						size_t item_index = SIZE_MAX;
 
-						auto item_it = std::find_if(std::execution::par_unseq, m_items.begin(), m_items.end(),
+						auto item_it = wk::find_if_parallel(m_items.begin(), m_items.end(),
 							[&item](const Item& other)
 							{
 								return item == other;

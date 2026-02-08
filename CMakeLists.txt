@@ -6,6 +6,7 @@ option(BUILD_ATLAS_GENERATOR_CLI "Build Atlas Generator CLI" OFF)
 
 if (${BUILD_ATLAS_GENERATOR_CLI})
     # OpenCV additional things
+    message(STATUS "Building with AtlasGenerator CLI")
     set(BUILD_LIST "core;imgproc;imgcodecs;highgui" CACHE INTERNAL "")
     set(BUILD_ATLAS_GENERATOR_WITH_IMAGE_CODECS ON)
     add_subdirectory(atlas-generator)
