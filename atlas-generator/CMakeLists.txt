@@ -32,5 +32,5 @@ target_include_directories(${TARGET}
 )
 
 set_target_properties(${TARGET} PROPERTIES
-    FOLDER WorkshopSDK/
+    FOLDER workshop-sdk/
 )
