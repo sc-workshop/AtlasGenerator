@@ -4,6 +4,7 @@
 #include <vector>
 #include <filesystem>
 #include <optional>
+#include <clipper2/clipper.h>
 #include "core/image/raw_image.h"
 #include "core/math/color_rgba.h"
 #include "core/memory/ref.h"
@@ -26,21 +27,24 @@ namespace wk
 		class Item
 		{
 		public:
+            template <typename T = int32_t>
 			class Transformation
 			{
 			public:
-				Transformation(double rotation = 0.0, Point translation = Point(0, 0));
+                Transformation(double rotation = 0.0, Point_t<T> translation = Point_t<T>(0, 0)) :
+                    rotation(rotation),
+                    translation(translation) {}
 
 			public:
 				// Rotation in radians
 				double rotation;
-				Point translation;
+				Point_t<T> translation;
 
-				template<typename T>
-				void transform_point(Point_t<T>& vertex) const
+				template <typename P>
+				void transform_point(Point_t<P>& vertex) const
 				{
-					T x = vertex.x;
-					T y = vertex.y;
+					P x = vertex.x;
+					P y = vertex.y;
 
 					vertex.x = (T)std::ceil(x * std::cos(rotation) - y * std::sin(rotation) + translation.x);
 					vertex.y = (T)std::ceil(y * std::cos(rotation) + x * std::sin(rotation) + translation.y);
@@ -84,7 +88,7 @@ namespace wk
 			Container<Vertex> vertices;
 
 			// UV Transformation
-			Transformation transform;
+			Transformation<int32_t> transform;
 
 		public:
 			bool is_rectangle() const;
@@ -94,17 +98,85 @@ namespace wk
 
 		public:
 			// XY coords bound
-			Rect bound() const;
+			RectF bound() const;
 			RectUV bound_uv() const;
 			void generate_image_polygon(const Config& config);
 			bool mark_as_custom();
 			bool mark_as_preprocessed();
 
 		public:
+            /// @brief Splits provided vertex array into 9 slices accroding to provided guide
+            /// @param guide Slice guide
+            /// @param regions Output splited regions
+            /// @param vertices Polygon vertoces
+            /// @param xy_transform Vertices transformation
+            template <typename R, typename T>
+            static void Generate9Slice(const RectF& guide,
+                                             Container<Container<Vertex_t<R>>>& result,
+                                             const Container<Vertex_t<T>>& vertices,
+                                             const Transformation<float> xy_transform = Transformation<float>()) {
+                using namespace Clipper2Lib;
+
+                PathsD result_solution;
+                {
+                    PathD subject;
+
+                    subject.reserve(vertices.size());
+                    for (const auto& vertex : vertices) {
+                        subject.emplace_back(vertex.xy.x + xy_transform.translation.x,
+                                             vertex.xy.y + xy_transform.translation.y);
+                    }
+
+                    constexpr float min = (float) std::numeric_limits<int>::min();
+                    constexpr float max = (float) std::numeric_limits<int>::max();
+
+                    const Container<RectF> rects = {
+                        {min, min, guide.left, guide.bottom},       // Left-Top
+                        {min, guide.bottom, guide.left, guide.top}, // Top-Middle
+                        {guide.left, guide.top, min, max},          // Right-Top
+
+                        {guide.left, min, guide.right, guide.bottom},       // Left-Middle
+                        {guide.left, guide.bottom, guide.right, guide.top}, // Middle
+                        {guide.left, guide.top, guide.right, max},          // Middle-bottom
+
+                        {guide.right, guide.bottom, max, min},       // Left-bottom
+                        {guide.right, guide.top, max, guide.bottom}, // Middle-bottom
+                        {guide.right, guide.top, max, max},          // Right-bottom
+
+                    };
+
+                    for (const RectF& rect : rects) {
+                        PathD path;
+
+                        path.emplace_back(rect.bottom, rect.left);
+                        path.emplace_back(rect.bottom, rect.right);
+                        path.emplace_back(rect.top, rect.right);
+                        path.emplace_back(rect.top, rect.left);
+
+                        PathsD solution = Intersect({subject}, {path}, FillRule::NonZero, 8);
+                        result_solution.insert(result_solution.end(), solution.begin(), solution.end());
+                    }
+                }
+
+                for (PathD& path : result_solution) {
+                    Container<Vertex_t<R>>& result_path = result.emplace_back();
+                    for (const PointD& path_vertex : path) {
+                        Vertex_t<R>& vertex = result_path.emplace_back();
+
+                        vertex.xy.x = (R)path_vertex.x;
+                        vertex.xy.y = (R)path_vertex.y;
+                    }
+                }
+            }
+
+			/// @brief Splits current item polygon to 9 slices according to provided guide
+			/// @param guide Slice guide
+			/// @param regions Output splited regions
+			/// @param xy_transform Vertices transformation
 			void get_9slice(
 				const RectF& guide,
-				Container<Container<VertexF>>& vertices,
-				const Transformation xy_transform = Transformation()
+				Container<Container<VertexF>>& regions,
+				const Transformation<float> xy_transform = Transformation<float>()
 			) const;
 
 		public:
