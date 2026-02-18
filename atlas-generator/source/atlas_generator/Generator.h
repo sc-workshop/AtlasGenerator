@@ -42,6 +42,10 @@ namespace wk {
 						throw PackagingException(PackagingException::Reason::UnsupportedImage, i);
 					}
 
+					if (item.width() > m_config.width() || item.height() > m_config.height()) {
+                        throw PackagingException(PackagingException::Reason::TooBigImage, i);
+                    }
+
 					texture_variants[item.image().depth()]++;
 				}
 
@@ -144,11 +148,6 @@ namespace wk {
 					if (item.vertices.empty())
 					{
 						throw PackagingException(PackagingException::Reason::InvalidPolygon, inverse_duplicate_indices[i]);
-					}
-
-					if (item.width() > m_config.width() || item.height() > m_config.height())
-					{
-						throw PackagingException(PackagingException::Reason::TooBigImage, inverse_duplicate_indices[i]);
 					}
 				}
 
