@@ -76,19 +76,27 @@ namespace wk {
             Image::Size current_size = full_size;
             PointF crop_offset(0.0f, 0.0f);
 
-            auto fallback_rectangle = [this, &crop_offset, &full_size, &current_size] {
+            auto fallback_rectangle = [&] {
                 vertices.resize(4);
 
-                vertices[3].uv = {0, 0};
-                vertices[2].uv = {0, (uint16_t) current_size.y};
-                vertices[1].uv = {(uint16_t) current_size.x, (uint16_t) current_size.y};
-                vertices[0].uv = {(uint16_t) current_size.x, 0};
+                uint16_t x1 = (uint16_t) (crop_offset.x * scale_factor);
+                uint16_t y1 = (uint16_t) (crop_offset.y * scale_factor);
 
-                vertices[3].xy = {(uint16_t) crop_offset.x, (uint16_t) crop_offset.y};
-                vertices[2].xy = {(uint16_t) crop_offset.x, (uint16_t) (crop_offset.y + current_size.y)};
-                vertices[1].xy = {(uint16_t) (crop_offset.x + current_size.x),
-                                  (uint16_t) (crop_offset.y + current_size.y)};
-                vertices[0].xy = {(uint16_t) (crop_offset.x + current_size.x), (uint16_t) crop_offset.y};
+                uint16_t x2 = (uint16_t) ((crop_offset.x + current_size.x) * scale_factor);
+                uint16_t y2 = (uint16_t) ((crop_offset.y + current_size.y) * scale_factor);
+
+                uint16_t u = (uint16_t) current_size.x;
+                uint16_t v = (uint16_t) current_size.y;
+
+                vertices[3].uv = {0, 0};
+                vertices[2].uv = {0, v};
+                vertices[1].uv = {u, v};
+                vertices[0].uv = {u, 0};
+
+                vertices[3].xy = {x1, y1};
+                vertices[2].xy = {x1, y2};
+                vertices[1].xy = {x2, y2};
+                vertices[0].xy = {x2, y1};
 
                 m_status = Status::Valid;
             };
