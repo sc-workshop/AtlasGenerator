@@ -1,208 +1,198 @@
 #pragma once
 
-#include <stdint.h>
-#include <vector>
-#include <filesystem>
-#include <optional>
-#include <clipper2/clipper.h>
-#include "core/image/raw_image.h"
-#include "core/math/color_rgba.h"
-#include "core/memory/ref.h"
-#include "core/geometry/intersect.hpp"
-#include "core/geometry/convex.hpp"
-
 #include "Vertex.h"
 #include "atlas_generator/Config.h"
+#include "core/geometry/convex.hpp"
+#include "core/geometry/intersect.hpp"
+#include "core/image/raw_image.h"
+#include "core/math/color_rgba.h"
 #include "core/math/point.h"
 #include "core/math/rect.h"
+#include "core/memory/ref.h"
 
-namespace wk
-{
-	namespace AtlasGenerator
-	{
-		template<typename T>
-		using Container = std::vector<T>;
+#include <clipper2/clipper.h>
+#include <filesystem>
+#include <optional>
+#include <stdint.h>
+#include <vector>
 
-		// Interface that represents Atlas Sprite
-		class Item
-		{
-		public:
-            template <typename T = int32_t>
-			class Transformation
-			{
-			public:
-                Transformation(double rotation = 0.0, Point_t<T> translation = Point_t<T>(0, 0)) :
-                    rotation(rotation),
-                    translation(translation) {}
+namespace wk::AtlasGenerator {
+    template <typename T>
+    using Container = std::vector<T>;
 
-			public:
-				// Rotation in radians
-				double rotation;
-				Point_t<T> translation;
+    // Interface that represents Atlas Sprite
+    class Item {
+    public:
+        template <typename T = int32_t>
+        class Transformation {
+        public:
+            Transformation(double rotation = 0.0, Point_t<T> translation = Point_t<T>(0, 0)) :
+                rotation(rotation),
+                translation(translation) {}
 
-				template <typename P>
-				void transform_point(Point_t<P>& vertex) const
-				{
-					P x = vertex.x;
-					P y = vertex.y;
+        public:
+            // Rotation in radians
+            double rotation;
+            Point_t<T> translation;
 
-					vertex.x = (T)std::ceil(x * std::cos(rotation) - y * std::sin(rotation) + translation.x);
-					vertex.y = (T)std::ceil(y * std::cos(rotation) + x * std::sin(rotation) + translation.y);
-				}
-			};
-		public:
-			enum class Status : uint8_t
-			{
-				Unset = 0,
-				Valid,
-				InvalidPolygon
-			};
+            template <typename P>
+            void transform_point(Point_t<P>& vertex) const {
+                P x = vertex.x;
+                P y = vertex.y;
 
-			enum FixedRotation : uint16_t
-			{
-				NoRotation = 0,
-				Rotation90 = 90,
-				Rotation180 = 180,
-				Rotation270 = 270
-			};
+                vertex.x = (T) std::ceil(x * std::cos(rotation) - y * std::sin(rotation) + translation.x);
+                vertex.y = (T) std::ceil(y * std::cos(rotation) + x * std::sin(rotation) + translation.y);
+            }
+        };
 
-		public:
-			Item(const RawImage& image, bool sliced = false);
-			Item(const ColorRGBA& color);
-			Item(std::filesystem::path path, bool sliced = false);
+    public:
+        enum class Status : uint8_t {
+            Unset = 0,
+            Valid,
+            InvalidPolygon
+        };
 
-			~Item() = default;
+        enum FixedRotation : uint16_t {
+            NoRotation = 0,
+            Rotation90 = 90,
+            Rotation180 = 180,
+            Rotation270 = 270
+        };
 
-			// Image Info
-		public:
-			Status status() const;
-			uint16_t width() const;
-			uint16_t height() const;
+    public:
+        Item(const RawImage& image, bool sliced = false);
+        Item(const ColorRGBA& color);
+        Item(std::filesystem::path path, bool sliced = false);
 
-			const RawImage& image() const { return *m_image; };
-			const RawImageRef& image_ref() const { return m_image; };
+        ~Item() = default;
 
-			// Generator Info
-		public:
-			size_t texture_index = 0xFF;
-			Container<Vertex> vertices;
+        // Image Info
+    public:
+        Status status() const;
+        uint16_t width() const;
+        uint16_t height() const;
 
-			// UV Transformation
-			Transformation<int32_t> transform;
+        const RawImage& image() const { return *m_image; };
+        const RawImageRef& image_ref() const { return m_image; };
 
-		public:
-			bool is_rectangle() const;
-			bool is_sliced() const;
-			bool is_colorfill() const { return m_colorfill; };
-			std::optional< AtlasGenerator::Vertex> get_colorfill() const;
+        // Generator Info
+    public:
+        size_t texture_index = 0xFF;
+        Container<Vertex> vertices;
 
-		public:
-			// XY coords bound
-			RectF bound() const;
-			RectUV bound_uv() const;
-			void generate_image_polygon(const Config& config);
-			bool mark_as_custom();
-			bool mark_as_preprocessed();
+        // UV Transformation
+        Transformation<int32_t> transform;
 
-		public:
-            /// @brief Splits provided vertex array into 9 slices accroding to provided guide
-            /// @param guide Slice guide
-            /// @param regions Output splited regions
-            /// @param vertices Polygon vertoces
-            /// @param xy_transform Vertices transformation
-            template <typename R, typename T>
-            static void Generate9Slice(const RectF& guide,
-                                             Container<Container<Vertex_t<R>>>& result,
-                                             const Container<Vertex_t<T>>& vertices,
-                                             const Transformation<float> xy_transform = Transformation<float>()) {
-                using namespace Clipper2Lib;
+    public:
+        bool is_rectangle() const;
+        bool is_sliced() const;
+        bool is_colorfill() const { return m_colorfill; };
+        std::optional<AtlasGenerator::Vertex> get_colorfill() const;
 
-                PathsD result_solution;
-                {
-                    PathD subject;
+    public:
+        // XY coords bound
+        RectF bound() const;
+        RectUV bound_uv() const;
+        void generate_image_polygon(const Config& config);
+        bool mark_as_custom();
+        bool mark_as_preprocessed();
 
-                    subject.reserve(vertices.size());
-                    for (const auto& vertex : vertices) {
-                        subject.emplace_back(vertex.xy.x + xy_transform.translation.x,
-                                             vertex.xy.y + xy_transform.translation.y);
-                    }
+    public:
+        /// @brief Splits provided vertex array into 9 slices accroding to provided guide
+        /// @param guide Slice guide
+        /// @param regions Output splited regions
+        /// @param vertices Polygon vertoces
+        /// @param xy_transform Vertices transformation
+        template <typename R, typename T>
+        static void Generate9Slice(const RectF& guide,
+                                   Container<Container<Vertex_t<R>>>& result,
+                                   const Container<Vertex_t<T>>& vertices,
+                                   const Transformation<float> xy_transform = Transformation<float>()) {
+            using namespace Clipper2Lib;
 
-                    constexpr float min = (float) std::numeric_limits<int>::min();
-                    constexpr float max = (float) std::numeric_limits<int>::max();
+            PathsD result_solution;
+            {
+                PathD subject;
 
-                    const Container<RectF> rects = {
-                        {min, min, guide.left, guide.bottom},       // Left-Top
-                        {min, guide.bottom, guide.left, guide.top}, // Top-Middle
-                        {guide.left, guide.top, min, max},          // Right-Top
-
-                        {guide.left, min, guide.right, guide.bottom},       // Left-Middle
-                        {guide.left, guide.bottom, guide.right, guide.top}, // Middle
-                        {guide.left, guide.top, guide.right, max},          // Middle-bottom
-
-                        {guide.right, guide.bottom, max, min},       // Left-bottom
-                        {guide.right, guide.top, max, guide.bottom}, // Middle-bottom
-                        {guide.right, guide.top, max, max},          // Right-bottom
-
-                    };
-
-                    for (const RectF& rect : rects) {
-                        PathD path;
-
-                        path.emplace_back(rect.bottom, rect.left);
-                        path.emplace_back(rect.bottom, rect.right);
-                        path.emplace_back(rect.top, rect.right);
-                        path.emplace_back(rect.top, rect.left);
-
-                        PathsD solution = Intersect({subject}, {path}, FillRule::NonZero, 8);
-                        result_solution.insert(result_solution.end(), solution.begin(), solution.end());
-                    }
+                subject.reserve(vertices.size());
+                for (const auto& vertex : vertices) {
+                    subject.emplace_back(vertex.xy.x + xy_transform.translation.x,
+                                         vertex.xy.y + xy_transform.translation.y);
                 }
 
-                for (PathD& path : result_solution) {
-                    Container<Vertex_t<R>>& result_path = result.emplace_back();
-                    for (const PointD& path_vertex : path) {
-                        Vertex_t<R>& vertex = result_path.emplace_back();
+                constexpr float min = (float) std::numeric_limits<int>::min();
+                constexpr float max = (float) std::numeric_limits<int>::max();
 
-                        vertex.xy.x = (R)path_vertex.x;
-                        vertex.xy.y = (R)path_vertex.y;
-                    }
+                const Container<RectF> rects = {
+                    {min, min, guide.left, guide.bottom},       // Left-Top
+                    {min, guide.bottom, guide.left, guide.top}, // Top-Middle
+                    {guide.left, guide.top, min, max},          // Right-Top
+
+                    {guide.left, min, guide.right, guide.bottom},       // Left-Middle
+                    {guide.left, guide.bottom, guide.right, guide.top}, // Middle
+                    {guide.left, guide.top, guide.right, max},          // Middle-bottom
+
+                    {guide.right, guide.bottom, max, min},       // Left-bottom
+                    {guide.right, guide.top, max, guide.bottom}, // Middle-bottom
+                    {guide.right, guide.top, max, max},          // Right-bottom
+
+                };
+
+                for (const RectF& rect : rects) {
+                    PathD path;
+
+                    path.emplace_back(rect.bottom, rect.left);
+                    path.emplace_back(rect.bottom, rect.right);
+                    path.emplace_back(rect.top, rect.right);
+                    path.emplace_back(rect.top, rect.left);
+
+                    PathsD solution = Intersect({subject}, {path}, FillRule::NonZero, 8);
+                    result_solution.insert(result_solution.end(), solution.begin(), solution.end());
                 }
             }
 
-			/// @brief Splits current item polygon to 9 slices according to provided guide
-			/// @param guide Slice guide
-			/// @param regions Output splited regions
-			/// @param xy_transform Vertices transformation
-			void get_9slice(
-				const RectF& guide,
-				Container<Container<VertexF>>& regions,
-				const Transformation<float> xy_transform = Transformation<float>()
-			) const;
+            for (PathD& path : result_solution) {
+                Container<Vertex_t<R>>& result_path = result.emplace_back();
+                for (const PointD& path_vertex : path) {
+                    Vertex_t<R>& vertex = result_path.emplace_back();
 
-		public:
-			bool operator ==(const Item& other) const;
+                    vertex.xy.x = (R) path_vertex.x;
+                    vertex.xy.y = (R) path_vertex.y;
+                }
+            }
+        }
 
-		private:
-			void image_preprocess(const Config& config);
-			void alpha_preprocess();
+        /// @brief Splits current item polygon to 9 slices according to provided guide
+        /// @param guide Slice guide
+        /// @param regions Output splited regions
+        /// @param xy_transform Vertices transformation
+        void get_9slice(const RectF& guide,
+                        Container<Container<VertexF>>& regions,
+                        const Transformation<float> xy_transform = Transformation<float>()) const;
 
-			void get_image_contour(RawImageRef image, Container<Point>& result);
+    public:
+        bool operator==(const Item& other) const;
 
-			void normalize_mask(RawImageRef mask, const Config& config);
-			RawImageRef dilate_mask(RawImageRef mask);
+    private:
+        void image_preprocess(const Config& config);
+        void alpha_preprocess();
 
-			bool verify_vertices();
+        void get_image_contour(RawImageRef image, Container<Point>& result);
 
-			std::size_t hash() const;
+        void normalize_mask(RawImageRef mask, const Config& config);
+        RawImageRef dilate_mask(RawImageRef mask);
 
-		protected:
-			Status m_status = Status::Unset;
-			bool m_preprocessed = false;
-			bool m_sliced = false;
-			bool m_colorfill = false;
+        bool verify_vertices();
 
-			RawImageRef m_image;
-			mutable size_t m_hash = 0;
-		};
-	}
+        std::size_t hash() const;
+
+    protected:
+        Status m_status = Status::Unset;
+        bool m_preprocessed = false;
+        bool m_sliced = false;
+        bool m_colorfill = false;
+
+        RawImageRef m_image;
+        mutable size_t m_hash = 0;
+    };
 }
