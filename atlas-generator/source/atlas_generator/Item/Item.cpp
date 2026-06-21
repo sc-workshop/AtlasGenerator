@@ -1,5 +1,6 @@
 #include "atlas_generator/Item/Item.h"
 
+#include "core/asset_manager/asset_manager.h"
 #include "core/io/file_stream.h"
 #include "core/math/triangle.h"
 #include "core/stb/stb.h"
@@ -17,13 +18,13 @@ namespace wk::AtlasGenerator {
         m_colorfill(true) {
     }
 
-#ifdef ATLAS_GENERATOR_WITH_IMAGE_CODECS
     Item::Item(std::filesystem::path path, bool sliced) :
         m_sliced(sliced) {
-        InputFileStream file(path);
-        stb::load_image(file, m_image);
+        auto& manager = wk::AssetManager::Instance();
+
+        auto file = manager.load_file(path);
+        stb::load_image(*file, m_image);
     }
-#endif
 
     Item::Status Item::status() const {
         return m_status;
