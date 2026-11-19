@@ -5,6 +5,9 @@
 #include <stdint.h>
 
 namespace wk::AtlasGenerator {
+    /// @brief Thrown by Generator when the caller's cancellation callback returns true.
+    struct Cancelled {};
+
     class Config {
     public:
         Config(uint16_t width,
@@ -35,5 +38,6 @@ namespace wk::AtlasGenerator {
 
     public:
         std::function<void(size_t)> progress;
+        std::function<bool()> cancelled;
     };
 }

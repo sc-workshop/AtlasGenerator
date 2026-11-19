@@ -54,6 +54,7 @@ namespace wk::AtlasGenerator {
         cfg.selector_config.verify_items = false;
         // cfg.selector_config.texture_parallel_hard = m_config.parallel();
 
+        CheckCancelled();
         libnest2d::NestControl control;
         if (m_config.progress) {
             control.progressfn = [&](unsigned) { m_config.progress(m_duplicate_item_counter + m_item_counter++); };
@@ -67,6 +68,8 @@ namespace wk::AtlasGenerator {
                                 m_config.extrude() * 2,
                                 cfg,
                                 control);
+
+        CheckCancelled();
 
         // Gathering texture size info
         std::vector<Image::Size> sheet_size(bin_count);

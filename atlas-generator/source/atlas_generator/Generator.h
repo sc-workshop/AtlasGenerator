@@ -31,6 +31,7 @@ namespace wk::AtlasGenerator {
 
             std::map<Image::PixelDepth, size_t> texture_variants;
             for (size_t i = 0; items.size() > i; i++) {
+                CheckCancelled();
                 Item& item = items[i];
 
                 if (!Generator::validate_image(item.image())) {
@@ -55,11 +56,13 @@ namespace wk::AtlasGenerator {
 
             size_t bin_count = 0;
             for (auto it = texture_variants.begin(); it != texture_variants.end(); ++it) {
+                CheckCancelled();
                 auto depth = it->first;
                 Container<size_t> item_indices;
                 item_indices.reserve(it->second);
 
                 for (size_t i = 0; items.size() > i; i++) {
+                    CheckCancelled();
                     Item& item = items[i];
                     if (item.image().depth() == depth) {
                         item_indices.push_back(i);
@@ -88,6 +91,7 @@ namespace wk::AtlasGenerator {
             inverse_duplicate_indices.reserve(items.size());
 
             for (auto it = item_iterator.begin(); it != item_iterator.end(); ++it) {
+                CheckCancelled();
                 const size_t i = *it;
                 Item& item = items[i];
 
@@ -117,6 +121,7 @@ namespace wk::AtlasGenerator {
             policy |= std::launch::async;
 #endif // !WK_DEBUG
 
+            CheckCancelled();
             parallel::enumerate(
                 m_items.begin(),
                 m_items.end(),
@@ -128,6 +133,7 @@ namespace wk::AtlasGenerator {
                 policy);
 
             for (size_t i = 0; m_items.size() > i; i++) {
+                CheckCancelled();
                 Item& item = m_items[i];
 
                 if (item.vertices.empty()) {
@@ -141,6 +147,7 @@ namespace wk::AtlasGenerator {
             };
 
             for (auto iter = m_duplicate_indices.begin(); iter != m_duplicate_indices.end(); ++iter) {
+                CheckCancelled();
                 size_t desination_index = iter->first;
                 size_t source_index = iter->second;
 
@@ -164,6 +171,12 @@ namespace wk::AtlasGenerator {
         void place_image_to(RawImageRef src, size_t atlas_index, uint16_t x, uint16_t y, Item::FixedRotation rotation);
 
         static bool validate_image(const RawImage& image);
+
+    private:
+        void CheckCancelled() const {
+            if (m_config.cancelled && m_config.cancelled())
+                throw Cancelled();
+        }
 
     private:
         const Config m_config;
