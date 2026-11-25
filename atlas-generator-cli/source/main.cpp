@@ -223,7 +223,7 @@ void process(ProgramOptions& options)
 
 		if (!fs::exists(guide_path))
 		{
-			if (basename.size() > 3 && basename.substr(basename.size() - 3)== "_la")
+			if (basename.size() > 3 && basename.substr(basename.size() - 3) == "_la")
 			{
 				InputFileStream file(path);
 				RawImageRef image;
@@ -257,7 +257,7 @@ void process(ProgramOptions& options)
 			guides[items.size()] = Rect(
 				(int32_t)ceil(guide[0]), (int32_t)ceil(guide[3]),
 				(int32_t)ceil(guide[1]), (int32_t)ceil(guide[2])
-				);
+			);
 
 			AtlasGenerator::Item item(path, true);
 
@@ -272,15 +272,6 @@ void process(ProgramOptions& options)
 		}
 	}
 
-	//std::vector<cv::Mat> original_images;
-	//if (options.is_item_debug)
-	//{
-	//	for (Item& item : items)
-	//	{
-	//		original_images.emplace_back(item.image());
-	//	}
-	//}
-
 	uint8_t scale_factor = 1;
 	AtlasGenerator::Config config(
 		4096, 4096,
@@ -288,9 +279,9 @@ void process(ProgramOptions& options)
 	);
 
 	config.progress = [&items](size_t count)
-	{
-		std::cout << std::string(100, '\b') << count + 1 << "\\" << items.size() << std::flush;
-	};
+		{
+			std::cout << std::string(100, '\b') << count + 1 << "\\" << items.size() << std::flush;
+		};
 
 	size_t bin_count = 0;
 	AtlasGenerator::Generator generator(config);
@@ -396,7 +387,7 @@ void process(ProgramOptions& options)
 
 			cv::Mat& mat = sheets.emplace_back(
 				cv::Mat(atlas.height(), atlas.width(), type,
-				atlas.data())
+					atlas.data())
 			);
 
 			switch (atlas.depth())

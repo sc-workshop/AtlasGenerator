@@ -54,121 +54,118 @@ namespace wk
 			cfg.placer_config.alignment = libnest2d::NestConfig<>::Placement::Alignment::DONT_ALIGN;
 			cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
 			cfg.placer_config.parallel = m_config.parallel();
-#if WK_DEBUG
-			cfg.placer_config.accuracy = 1.0f;
-#else
 			cfg.placer_config.accuracy = 0.6f;
-#endif
+
 			cfg.selector_config.verify_items = false;
 			//cfg.selector_config.texture_parallel_hard = m_config.parallel();
 			cfg.placer_config.rotation_callback = [&cfg](const libnest2d::Item& item)
-			{
-				auto& shape = item.rawShape();
 				{
-					size_t poly_dist = 0;
+					auto& shape = item.rawShape();
+					{
+						size_t poly_dist = 0;
+						size_t count = shape.Contour.size() - 1;
+						bool is_straight = true;
+						for (size_t i = 0; count > i; i++)
+						{
+							auto& p1 = shape.Contour[i];
+							auto& p2 = shape.Contour[(i + 1) % count];
+							size_t distance = wk::Geometry::dist<ClipperLib::cInt, ClipperLib::cInt>({ p1.X, p1.Y }, { p2.X, p2.Y });
+
+							if (i != 0)
+							{
+								if (distance != poly_dist)
+								{
+									is_straight = false;
+									break;
+								}
+							}
+							else
+							{
+								poly_dist = distance;
+							}
+						}
+
+						if (is_straight)
+						{
+							return std::vector<libnest2d::Radians>{ 0.0 };
+						}
+					}
+
+					Point_t<int> centroid;
+					{
+						int32_t cx = 0, cy = 0;
+						int n = shape.Contour.size() - 1;
+						for (const auto& p : shape.Contour) {
+							cx += p.X;
+							cy += p.Y;
+						}
+						centroid = { (int)std::ceil(cx / n), (int)std::ceil(cy / n) };
+					}
+
+					bool symmetry_x = true;
+					bool symmetry_y = true;
+
+					std::vector<libnest2d::Radians> result{ 0.0 };
+					result.reserve(cfg.placer_config.rotations.size());
+
 					size_t count = shape.Contour.size() - 1;
-					bool is_straight = true;
 					for (size_t i = 0; count > i; i++)
 					{
-						auto& p1 = shape.Contour[i];
-						auto& p2 = shape.Contour[(i + 1) % count];
-						size_t distance = wk::Geometry::dist<ClipperLib::cInt, ClipperLib::cInt>({ p1.X, p1.Y }, { p2.X, p2.Y });
-
-						if (i != 0)
+						const auto& p = shape.Contour[i];
+						bool hasMirror = false;
+						for (size_t t = 0; count > t; t++)
 						{
-							if (distance != poly_dist)
-							{
-								is_straight = false;
+							if (i == t) continue;
+
+							const auto& q = shape.Contour[t];
+							if (p.X == q.X && abs(p.Y + q.Y - 2 * centroid.y) == 0) {
+								hasMirror = true;
 								break;
 							}
 						}
-						else
+
+						if (!hasMirror)
 						{
-							poly_dist = distance;
-						}
-					}
-
-					if (is_straight)
-					{
-						return std::vector<libnest2d::Radians>{ 0.0 };
-					}
-				}
-
-				Point_t<int> centroid;
-				{
-					int32_t cx = 0, cy = 0;
-					int n = shape.Contour.size() - 1;
-					for (const auto& p : shape.Contour) {
-						cx += p.X;
-						cy += p.Y;
-					}
-					centroid = { (int)std::ceil(cx / n), (int)std::ceil(cy / n)};
-				}
-
-				bool symmetry_x = true;
-				bool symmetry_y = true;
-
-				std::vector<libnest2d::Radians> result{ 0.0 };
-				result.reserve(cfg.placer_config.rotations.size());
-
-				size_t count = shape.Contour.size() - 1;
-				for (size_t i = 0; count > i; i++)
-				{
-					const auto& p = shape.Contour[i];
-					bool hasMirror = false;
-					for (size_t t = 0; count > t; t++)
-					{
-						if (i == t) continue;
-
-						const auto& q = shape.Contour[t];
-						if (p.X == q.X && abs(p.Y + q.Y - 2 * centroid.y) == 0) {
-							hasMirror = true;
+							symmetry_x = false;
 							break;
 						}
 					}
 
-					if (!hasMirror)
+					for (size_t i = 0; count > i; i++)
 					{
-						symmetry_x = false;
-						break;
-					}
-				}
+						const auto& p = shape.Contour[i];
+						bool hasMirror = false;
+						for (size_t t = 0; count > t; t++)
+						{
+							if (i == t) continue;
 
-				for (size_t i = 0; count > i; i++)
-				{
-					const auto& p = shape.Contour[i];
-					bool hasMirror = false;
-					for (size_t t = 0; count > t; t++)
-					{
-						if (i == t) continue;
+							const auto& q = shape.Contour[t];
+							if (abs(p.X + q.X - (2 * centroid.x)) == 0 && p.Y == q.Y) {
+								hasMirror = true;
+								break;
+							}
+						}
 
-						const auto& q = shape.Contour[t];
-						if (abs(p.X + q.X - (2 * centroid.x)) == 0 && p.Y == q.Y) {
-							hasMirror = true;
+						if (!hasMirror)
+						{
+							symmetry_y = false;
 							break;
 						}
 					}
 
-					if (!hasMirror)
+					if (!symmetry_x)
 					{
-						symmetry_y = false;
-						break;
+						result.push_back(libnest2d::Pi);
 					}
-				}
 
-				if (!symmetry_x)
-				{
-					result.push_back(libnest2d::Pi);
-				}
+					if (!symmetry_y)
+					{
+						result.push_back(libnest2d::Pi / 2.0);
+						result.push_back(3 * libnest2d::Pi / 2);
+					}
 
-				if (!symmetry_y)
-				{
-					result.push_back(libnest2d::Pi / 2.0);
-					result.push_back(3 * libnest2d::Pi / 2);
-				}
-
-				return result;
-			};
+					return result;
+				};
 
 			libnest2d::NestControl control;
 			if (m_config.progress)
@@ -217,7 +214,7 @@ namespace wk
 				uint16_t height = (uint16_t)(size.y + m_config.extrude());
 
 				m_atlases.emplace_back(
-					std::clamp<uint16_t>(width, 0, m_config.width()), 
+					std::clamp<uint16_t>(width, 0, m_config.width()),
 					std::clamp<uint16_t>(height, 0, m_config.height()),
 					atlas_type
 				);
@@ -271,7 +268,7 @@ namespace wk
 			);
 			x -= extrude;
 			y -= extrude;
-			
+
 			for (uint16_t h = 0; input.height() > h; h++)
 			{
 				for (uint16_t w = 0; input.width() > w; w++)
@@ -287,7 +284,7 @@ namespace wk
 				for (uint16_t h = 0; image->height() > h; h++)
 				{
 					uint8_t* pixel = image->at(dstX, h);
-				
+
 					for (uint16_t i = 0; extrude > i; i++)
 					{
 						Memory::copy(pixel, image->at(i, h), image->pixel_size());
@@ -298,7 +295,7 @@ namespace wk
 				for (uint16_t h = 0; image->height() > h; h++)
 				{
 					uint8_t* pixel = image->at(dstY, h);
-				
+
 					for (uint16_t i = 0; extrude > i; i++)
 					{
 						Memory::copy(pixel, image->at(i + dstY + 1, h), image->pixel_size());
@@ -324,14 +321,14 @@ namespace wk
 				for (uint16_t w = 0; image->width() > w; w++)
 				{
 					uint8_t* pixel = image->at(w, dstY);
-				
+
 					for (uint16_t i = 0; extrude > i; i++)
 					{
 						Memory::copy(pixel, image->at(w, i + dstY + 1), image->pixel_size());
 					}
 				}
 			}
-			
+
 
 			uint16_t width = image->width() - 1;
 			uint16_t height = image->height() - 1;

@@ -1,2 +1,5 @@
 build/
 test/
+benchmark-results.json
+AGENTS.md
+docs/
