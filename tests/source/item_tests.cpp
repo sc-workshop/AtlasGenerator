@@ -1,114 +1,180 @@
-#include <gtest/gtest.h>
-
-#include <vector>
-
 #include "atlas_generator/Item/Item.h"
 #include "atlas_generator/Item/Iterator.h"
 #include "atlas_generator/Item/Vertex.h"
-
 #include "core/image/raw_image.h"
 #include "core/math/color_rgba.h"
+
+#include <array>
+#include <gtest/gtest.h>
+#include <numbers>
+#include <vector>
 
 using namespace wk;
 using namespace wk::AtlasGenerator;
 
-namespace
-{
-	RawImage filled_image(uint16_t width, uint16_t height, uint8_t value) {
-		RawImage image(width, height, Image::PixelDepth::RGBA8);
-		for (uint16_t y = 0; height > y; ++y) {
-			for (uint16_t x = 0; width > x; ++x) {
-				image.at<ColorRGBA>(x, y) = ColorRGBA{ value, value, value, 255 };
-			}
-		}
-		return image;
-	}
+namespace {
+    RawImage filled_image(uint16_t width, uint16_t height, uint8_t value) {
+        RawImage image(width, height, Image::PixelDepth::RGBA8);
+        for (uint16_t y = 0; height > y; ++y) {
+            for (uint16_t x = 0; width > x; ++x) {
+                image.at<ColorRGBA>(x, y) = ColorRGBA {value, value, value, 255};
+            }
+        }
+        return image;
+    }
 }
 
 TEST(Item, SmallItemsUseRectangleFallback) {
-	RawImage image = filled_image(10, 10, 255);
-	Item item(image);
+    RawImage image = filled_image(10, 10, 255);
+    Item item(image);
 
-	EXPECT_TRUE(item.is_rectangle());
-	EXPECT_FALSE(item.is_sliced());
+    EXPECT_TRUE(item.is_rectangle());
+    EXPECT_FALSE(item.is_sliced());
 }
 
 TEST(Item, LargeItemsDoNotUseRectangleFallback) {
-	RawImage image = filled_image(60, 60, 255);
-	Item item(image);
+    RawImage image = filled_image(60, 60, 255);
+    Item item(image);
 
-	EXPECT_FALSE(item.is_rectangle());
+    EXPECT_FALSE(item.is_rectangle());
 }
 
 TEST(Item, SlicedItemsUseRectangleFallback) {
-	RawImage image = filled_image(60, 60, 255);
-	Item item(image, true);
+    RawImage image = filled_image(60, 60, 255);
+    Item item(image, true);
 
-	EXPECT_TRUE(item.is_rectangle());
-	EXPECT_TRUE(item.is_sliced());
+    EXPECT_TRUE(item.is_rectangle());
+    EXPECT_TRUE(item.is_sliced());
+}
+
+TEST(Item, NineSlicesClippedByGuide) {
+    RawImage image = filled_image(60, 60, 255);
+    Item item(image, true);
+    Config config(4096, 4096, 1.0f, 2, false);
+    item.generate_image_polygon(config);
+
+    Container<Container<Vertex>> result;
+    Item::Transformation transform(0.0, Point(-30, -30));
+    item.get_9slice(Rect(-10, 10, 10, -10), result, transform);
+
+    const std::vector<std::vector<std::array<int, 4>>> expected = {
+        {{-10, -10, 20, 20}, {-30, -10, 0, 20}, {-30, -30, 0, 0}, {-10, -30, 20, 0}},
+        {{10, -10, 40, 20}, {-10, -10, 20, 20}, {-10, -30, 20, 0}, {10, -30, 40, 0}},
+        {{30, -10, 60, 20}, {10, -10, 40, 20}, {10, -30, 40, 0}, {30, -30, 60, 0}},
+        {{-10, 10, 20, 40}, {-30, 10, 0, 40}, {-30, -10, 0, 20}, {-10, -10, 20, 20}},
+        {{10, 10, 40, 40}, {-10, 10, 20, 40}, {-10, -10, 20, 20}, {10, -10, 40, 20}},
+        {{30, 10, 60, 40}, {10, 10, 40, 40}, {10, -10, 40, 20}, {30, -10, 60, 20}},
+        {{-10, 10, 20, 40}, {-10, 30, 20, 60}, {-30, 30, 0, 60}, {-30, 10, 0, 40}},
+        {{10, 10, 40, 40}, {10, 30, 40, 60}, {-10, 30, 20, 60}, {-10, 10, 20, 40}},
+        {{30, 30, 60, 60}, {10, 30, 40, 60}, {10, 10, 40, 40}, {30, 10, 60, 40}},
+    };
+
+    ASSERT_EQ(result.size(), expected.size());
+    for (size_t path_index = 0; path_index < expected.size(); path_index++) {
+        ASSERT_EQ(result[path_index].size(), expected[path_index].size());
+        for (size_t vertex_index = 0; vertex_index < expected[path_index].size(); vertex_index++) {
+            const Vertex& vertex = result[path_index][vertex_index];
+            EXPECT_EQ((std::array<int, 4> {vertex.xy.x, vertex.xy.y, vertex.uv.x, vertex.uv.y}),
+                      expected[path_index][vertex_index]);
+        }
+    }
 }
 
 TEST(Item, IdenticalImagesCompareEqual) {
-	RawImage first = filled_image(8, 8, 123);
-	RawImage second = filled_image(8, 8, 123);
-	Item a(first);
-	Item b(second);
+    RawImage first = filled_image(8, 8, 123);
+    RawImage second = filled_image(8, 8, 123);
+    Item a(first);
+    Item b(second);
 
-	EXPECT_TRUE(a == b);
+    EXPECT_TRUE(a == b);
 }
 
 TEST(Item, DifferentImagesCompareNotEqual) {
-	RawImage first = filled_image(8, 8, 123);
-	RawImage second = filled_image(8, 8, 45);
-	Item a(first);
-	Item b(second);
+    RawImage first = filled_image(8, 8, 123);
+    RawImage second = filled_image(8, 8, 45);
+    Item a(first);
+    Item b(second);
 
-	EXPECT_FALSE(a == b);
+    EXPECT_FALSE(a == b);
 }
 
 TEST(Vertex, DefaultAndExplicitConstruction) {
-	Vertex empty;
-	EXPECT_EQ(empty.xy.x, 0);
-	EXPECT_EQ(empty.xy.y, 0);
-	EXPECT_EQ(empty.uv.x, 0);
-	EXPECT_EQ(empty.uv.y, 0);
+    Vertex empty;
+    EXPECT_EQ(empty.xy.x, 0);
+    EXPECT_EQ(empty.xy.y, 0);
+    EXPECT_EQ(empty.uv.x, 0);
+    EXPECT_EQ(empty.uv.y, 0);
 
-	Vertex vertex(3, 4, 5, 6);
-	EXPECT_EQ(vertex.xy.x, 3);
-	EXPECT_EQ(vertex.xy.y, 4);
-	EXPECT_EQ(vertex.uv.x, 5);
-	EXPECT_EQ(vertex.uv.y, 6);
+    Vertex vertex(3, 4, 5, 6);
+    EXPECT_EQ(vertex.xy.x, 3);
+    EXPECT_EQ(vertex.xy.y, 4);
+    EXPECT_EQ(vertex.uv.x, 5);
+    EXPECT_EQ(vertex.uv.y, 6);
 }
 
 TEST(ItemIterator, WalksIndicesWithoutIndirection) {
-	ItemIterator<size_t> iterator(2, 5);
-	std::vector<size_t> values;
+    ItemIterator<size_t> iterator(2, 5);
+    std::vector<size_t> values;
 
-	for (size_t value : iterator) {
-		values.push_back(value);
-	}
+    for (size_t value : iterator) {
+        values.push_back(value);
+    }
 
-	EXPECT_EQ(values, (std::vector<size_t>{ 2, 3, 4 }));
+    EXPECT_EQ(values, (std::vector<size_t> {2, 3, 4}));
 }
 
 TEST(ItemIterator, WalksIndirectIndices) {
-	std::vector<size_t> indices{ 7, 11, 13 };
-	ItemIterator<size_t> iterator(0, indices.size(), indices);
-	std::vector<size_t> values;
+    std::vector<size_t> indices {7, 11, 13};
+    ItemIterator<size_t> iterator(0, indices.size(), indices);
+    std::vector<size_t> values;
 
-	for (size_t value : iterator) {
-		values.push_back(value);
-	}
+    for (size_t value : iterator) {
+        values.push_back(value);
+    }
 
-	EXPECT_EQ(values, (std::vector<size_t>{ 7, 11, 13 }));
+    EXPECT_EQ(values, (std::vector<size_t> {7, 11, 13}));
 }
 
 TEST(Transformation, RotatesAndTranslatesPoints) {
-	Item::Transformation transform(0.0, Point(10, 20));
-	Point_t<int> point{ 1, 2 };
+    Item::Transformation transform(0.0, Point(10, 20));
+    Point_t<int> point {1, 2};
 
-	transform.transform_point(point);
+    transform.transform_point(point);
 
-	EXPECT_EQ(point.x, 11);
-	EXPECT_EQ(point.y, 22);
+    EXPECT_EQ(point.x, 11);
+    EXPECT_EQ(point.y, 22);
+}
+
+TEST(Transformation, UsesExactQuarterTurns) {
+    constexpr double pi = std::numbers::pi_v<double>;
+
+    {
+        Item::Transformation transform(pi / 2.0, Point(0, 20));
+        Point_t<int> point {7, 0};
+
+        transform.transform_point(point);
+
+        EXPECT_EQ(point.x, 0);
+        EXPECT_EQ(point.y, 27);
+    }
+
+    {
+        Item::Transformation transform(pi, Point(20, 0));
+        Point_t<int> point {7, 0};
+
+        transform.transform_point(point);
+
+        EXPECT_EQ(point.x, 13);
+        EXPECT_EQ(point.y, 0);
+    }
+
+    {
+        Item::Transformation transform(3.0 * pi / 2.0, Point(0, 20));
+        Point_t<int> point {7, 0};
+
+        transform.transform_point(point);
+
+        EXPECT_EQ(point.x, 0);
+        EXPECT_EQ(point.y, 13);
+    }
 }
