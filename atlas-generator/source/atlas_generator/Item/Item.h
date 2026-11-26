@@ -17,23 +17,18 @@
 #include <stdint.h>
 #include <vector>
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     template <typename T>
     using Container = std::vector<T>;
 
     // Atlas sprite prepared for packing.
     //
     // Polygon invariant: after generate_image_polygon(), `vertices` is ALWAYS a
-    // convex polygon with 4..8 vertices. Fallback is a 4-point rectangle; the
-    // alpha path is a rectangle minus up to four corner cuts. libnest2d/NFP can
-    // assume convex, tiny polygons and needs no extra hull or simplification.
-    //
-    // `uv` holds local polygon coordinates consumed by the packer. `xy` holds
-    // source-space coordinates used by atlas.txt and debug views. Vertex order
-    // is defined by the generator; do not assume a fixed starting vertex.
+    // convex polygon with 4..8 vertices. Fallback is a 4-point rectangle. The
+    // alpha path is a rectangle minus up to four corner cuts. 
     class Item {
     public:
-        // Placement transform returned by libnest2d. Applies to `uv`, not `xy`.
+        // Placement transform returned by the packer. Applies to `uv`, not `xy`.
         class Transformation {
         public:
             Transformation(double rotation = 0.0, Point translation = Point(0, 0));
@@ -43,9 +38,8 @@ namespace wk { namespace AtlasGenerator {
             double rotation;
             Point translation;
 
-            // Apply rotation + translation to a polygon point.
-            // Quarter turns use exact sign permutation: cos/sin noise near
-            // 90/180/270 degrees can push integer UV components past ceil().
+            // Quarter turns use exact sign permutations. Trig near 90/180/270
+            // degrees can push integer UV components past ceil().
             template <typename T>
             void transform_point(Point_t<T>& vertex) const {
                 const double x = static_cast<double>(vertex.x);
@@ -109,7 +103,7 @@ namespace wk { namespace AtlasGenerator {
         // Build from decoded image. `sliced` forces rectangle fallback and skips scaling.
         Item(const RawImage& image, bool sliced = false);
 
-        // Solid color fill; generates a rectangular polygon.
+        // Create a solid-fill item. Uses a rectangular polygon.
         Item(const ColorRGBA& color);
 
         // Load from PNG path. Available only with image codecs enabled.
@@ -117,29 +111,26 @@ namespace wk { namespace AtlasGenerator {
 
         ~Item() = default;
 
-        // Image Info
     public:
-        // Polygon generation state.
+        // Current preprocessing status. Valid means `vertices` is usable.
         Status status() const;
 
-        // Current stored image size: after scaling/cropping, not original source size.
+        // Current stored image size after scaling and cropping.
         uint16_t width() const;
         uint16_t height() const;
 
-        // Current image; mutated by generate_image_polygon().
-        const RawImage& image() const { return *m_image; };
-        const RawImageRef& image_ref() const { return m_image; };
+        // Backing image. Mutated only inside generate_image_polygon().
+        const RawImage& image() const { return *m_image; }
+        const RawImageRef& image_ref() const { return m_image; }
 
-        // Generator Info
     public:
-        // Atlas bin assigned by pack_items(); 0xFF before packing.
+        // Atlas bin index. 0xFF means the item has not been packed.
         size_t texture_index = 0xFF;
 
-        // Convex 4..8 point polygon. `uv` is packer/atlas space; `xy` is source space.
+        // Convex 4..8 point polygon. `uv` is packer/atlas space. `xy` is source space.
         Container<Vertex> vertices;
 
-        // UV Transformation
-        // Rotation + translation returned by libnest2d.
+        // Rotation + translation returned by the packer.
         Transformation transform;
 
     public:
@@ -149,14 +140,12 @@ namespace wk { namespace AtlasGenerator {
         // True when the item came from a valid 9-slice guide.
         bool is_sliced() const;
 
-        // True for solid color fill items.
-        bool is_colorfill() const { return m_colorfill; };
+        bool is_colorfill() const { return m_colorfill; }
 
         // Colorfill vertex, when generated.
         std::optional<AtlasGenerator::Vertex> get_colorfill() const;
 
     public:
-        // XY coords bound
         // Axis-aligned bounds over `vertices.xy`.
         Rect bound() const;
 
@@ -174,7 +163,6 @@ namespace wk { namespace AtlasGenerator {
         // Accept externally supplied `vertices` and mark preprocessing done.
         bool mark_as_custom();
 
-        // Mark preprocessing as already performed.
         bool mark_as_preprocessed();
 
     public:
@@ -188,10 +176,9 @@ namespace wk { namespace AtlasGenerator {
         bool operator==(const Item& other) const;
 
     private:
-        // One-time scale for non-sliced items + alpha premultiply.
+        // Scale non-sliced images once and premultiply color channels.
         void image_preprocess(const Config& config);
 
-        // Premultiply RGB/L channels by alpha.
         void alpha_preprocess();
 
         // Extract + threshold alpha in one pass and compute the nonzero bound.
@@ -210,7 +197,7 @@ namespace wk { namespace AtlasGenerator {
         // 5x5 dilation used before contour extraction.
         RawImageRef dilate_mask(RawImageRef mask);
 
-        // Validate polygon convexity; sets Status::InvalidPolygon on failure.
+        // Verify convexity and set Status::InvalidPolygon when it fails.
         bool verify_vertices();
 
         // Cached image hash used by duplicate detection.
@@ -225,4 +212,4 @@ namespace wk { namespace AtlasGenerator {
         RawImageRef m_image;
         mutable size_t m_hash = 0;
     };
-}}
+}

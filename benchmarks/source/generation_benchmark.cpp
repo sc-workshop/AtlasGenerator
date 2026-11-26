@@ -112,7 +112,7 @@ static void BM_LoadImages(benchmark::State& state, const std::string& dataset) {
     }
 }
 
-// One generation per run; use --benchmark_repetitions=N for statistics.
+// One generation per run. Use --benchmark_repetitions=N for statistics.
 // Small currently takes minutes, so do not hard-code repetitions here.
 BENCHMARK_CAPTURE(BM_Generate, small, "test/small")->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_CAPTURE(BM_Generate, medium, "test/medium")->Unit(benchmark::kMillisecond)->Iterations(1);

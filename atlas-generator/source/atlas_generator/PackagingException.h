@@ -2,7 +2,7 @@
 
 #include "core/exception/exception.h"
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     class PackagingException : public std::exception {
     public:
         enum class Reason {
@@ -45,4 +45,4 @@ namespace wk { namespace AtlasGenerator {
         Reason m_reason;
         size_t m_item_index;
     };
-}}
+}

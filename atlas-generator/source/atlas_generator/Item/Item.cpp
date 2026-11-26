@@ -9,7 +9,7 @@
 #include <array>
 #include <cmath>
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     Item::Transformation::Transformation(double rotation, Point translation) :
         rotation(rotation),
         translation(translation) {
@@ -63,8 +63,6 @@ namespace wk { namespace AtlasGenerator {
     }
 
     bool Item::mark_as_custom() {
-        // if (!verify_vertices()) return false;
-
         m_status = Status::Valid;
         mark_as_preprocessed();
         return true;
@@ -250,7 +248,7 @@ namespace wk { namespace AtlasGenerator {
                     cut_mask |= 8;
             }
 
-            // Ring start is part of the emitted polygon format; the corner-cut
+            // Ring start is part of the emitted polygon format. The corner-cut
             // mask determines which clipped vertex must come first.
             size_t rotate_by = 0;
             if (cut_mask == 2 || cut_mask == 4)
@@ -651,4 +649,4 @@ namespace wk { namespace AtlasGenerator {
 
         return m_hash;
     }
-}}
+}

@@ -1,10 +1,12 @@
 #include "Generator.h"
 
-#include "limits.h"
+#include "packing/ItemSelector.h"
 
-#include <libnest2d/libnest2d.hpp>
+#include <algorithm>
+#include <cmath>
+#include <numbers>
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     Generator::Generator(const Config& config) :
         m_config(config) {
     }
@@ -25,167 +27,59 @@ namespace wk { namespace AtlasGenerator {
     }
 
     bool Generator::pack_items(Image::PixelDepth atlas_type) {
-        // Vector with polygons for libnest2d
-        std::vector<libnest2d::Item> packer_items;
+        std::vector<packing::PackingItem> packer_items;
         packer_items.reserve(m_items.size());
 
         for (const Item& item : m_items) {
-            libnest2d::Item& packer_item =
-                packer_items.emplace_back(std::vector<libnest2d::Point>(item.vertices.size() + 1));
-
-            for (uint16_t i = 0; packer_item.vertexCount() > i; i++) {
-                if (i == item.vertices.size()) { // End point for libnest2d
-                    packer_item.setVertex(i, {item.vertices[0].uv.x, item.vertices[0].uv.y});
-                } else {
-                    packer_item.setVertex(i, {item.vertices[i].uv.x, item.vertices[i].uv.y});
-                }
+            packing::Path contour;
+            contour.reserve(item.vertices.size() + 1);
+            for (const auto& vertex : item.vertices) {
+                contour.emplace_back(vertex.uv.x, vertex.uv.y);
             }
+            contour.emplace_back(contour.front());
+            packer_items.emplace_back(contour);
         }
 
-        libnest2d::NestConfig<libnest2d::NfpPlacer, libnest2d::FirstFitSelection> cfg;
-        cfg.placer_config.alignment = libnest2d::NestConfig<>::Placement::Alignment::DONT_ALIGN;
-        cfg.placer_config.starting_point = libnest2d::NestConfig<>::Placement::Alignment::BOTTOM_LEFT;
-        cfg.placer_config.parallel = m_config.parallel();
-        cfg.placer_config.accuracy = 0.6f;
-
-        cfg.selector_config.verify_items = false;
-        // cfg.selector_config.texture_parallel_hard = m_config.parallel();
-        cfg.placer_config.rotation_callback = [&cfg](const libnest2d::Item& item) {
-            auto& shape = item.rawShape();
-            {
-                size_t poly_dist = 0;
-                size_t count = shape.Contour.size() - 1;
-                bool is_straight = true;
-                for (size_t i = 0; count > i; i++) {
-                    auto& p1 = shape.Contour[i];
-                    auto& p2 = shape.Contour[(i + 1) % count];
-                    size_t distance =
-                        wk::Geometry::dist<ClipperLib::cInt, ClipperLib::cInt>({p1.X, p1.Y}, {p2.X, p2.Y});
-
-                    if (i != 0) {
-                        if (distance != poly_dist) {
-                            is_straight = false;
-                            break;
-                        }
-                    } else {
-                        poly_dist = distance;
-                    }
-                }
-
-                if (is_straight) {
-                    return std::vector<libnest2d::Radians> {0.0};
-                }
-            }
-
-            Point_t<int> centroid;
-            {
-                int32_t cx = 0, cy = 0;
-                int n = shape.Contour.size() - 1;
-                for (const auto& p : shape.Contour) {
-                    cx += p.X;
-                    cy += p.Y;
-                }
-                centroid = {(int) std::ceil(cx / n), (int) std::ceil(cy / n)};
-            }
-
-            bool symmetry_x = true;
-            bool symmetry_y = true;
-
-            std::vector<libnest2d::Radians> result {0.0};
-            result.reserve(cfg.placer_config.rotations.size());
-
-            size_t count = shape.Contour.size() - 1;
-            for (size_t i = 0; count > i; i++) {
-                const auto& p = shape.Contour[i];
-                bool hasMirror = false;
-                for (size_t t = 0; count > t; t++) {
-                    if (i == t)
-                        continue;
-
-                    const auto& q = shape.Contour[t];
-                    if (p.X == q.X && abs(p.Y + q.Y - 2 * centroid.y) == 0) {
-                        hasMirror = true;
-                        break;
-                    }
-                }
-
-                if (!hasMirror) {
-                    symmetry_x = false;
-                    break;
-                }
-            }
-
-            for (size_t i = 0; count > i; i++) {
-                const auto& p = shape.Contour[i];
-                bool hasMirror = false;
-                for (size_t t = 0; count > t; t++) {
-                    if (i == t)
-                        continue;
-
-                    const auto& q = shape.Contour[t];
-                    if (abs(p.X + q.X - (2 * centroid.x)) == 0 && p.Y == q.Y) {
-                        hasMirror = true;
-                        break;
-                    }
-                }
-
-                if (!hasMirror) {
-                    symmetry_y = false;
-                    break;
-                }
-            }
-
-            if (!symmetry_x) {
-                result.push_back(libnest2d::Pi);
-            }
-
-            if (!symmetry_y) {
-                result.push_back(libnest2d::Pi / 2.0);
-                result.push_back(3 * libnest2d::Pi / 2);
-            }
-
-            return result;
-        };
-
-        libnest2d::NestControl control;
+        packing::PackingConfig config;
+        config.parallel = m_config.parallel();
+        config.sort_by_max_dimension = m_config.packing_priority() == PackingPriority::Density;
         if (m_config.progress) {
-            control.progressfn = [&](unsigned) { m_config.progress(m_duplicate_item_counter + m_item_counter++); };
+            config.progress = [&]() { m_config.progress(m_duplicate_item_counter + m_item_counter++); };
         }
+
+        const packing::Box bin(m_config.width(),
+                               m_config.height(),
+                               {static_cast<packing::Coord>(std::ceil(m_config.width() / 2)),
+                                static_cast<packing::Coord>(std::ceil(m_config.height() / 2))});
 
         size_t bin_offset = m_atlases.size();
-        size_t bin_count = nest(packer_items,
-                                libnest2d::Box(m_config.width(),
-                                               m_config.height(),
-                                               {(int) ceil(m_config.width() / 2), (int) ceil(m_config.height() / 2)}),
-                                m_config.extrude() * 2,
-                                cfg,
-                                control);
+        size_t bin_count = packing::pack_items(packer_items, bin, static_cast<int>(m_config.extrude()) * 2, config);
 
         // Gathering texture size info
         std::vector<Image::Size> sheet_size(bin_count);
-        for (libnest2d::Item item : packer_items) {
-            if (item.binId() == libnest2d::BIN_ID_UNSET) {
+        for (const packing::PackingItem& item : packer_items) {
+            if (item.bin_id() == packing::BIN_ID_UNSET) {
                 return false;
-            };
+            }
 
-            auto box = item.boundingBox();
-            auto& size = sheet_size[item.binId()];
+            const packing::Box box = item.bounding_box();
+            auto& size = sheet_size[static_cast<size_t>(item.bin_id())];
 
-            auto x = libnest2d::getX(box.maxCorner());
-            auto y = libnest2d::getY(box.maxCorner());
+            const auto x = box.max.X;
+            const auto y = box.max.Y;
 
             if (x > size.x) {
-                size.x = (Image::SizeT) x;
+                size.x = static_cast<Image::SizeT>(x);
             }
             if (y > size.y) {
-                size.y = (Image::SizeT) y;
+                size.y = static_cast<Image::SizeT>(y);
             }
         }
 
         m_atlases.reserve(sheet_size.size());
         for (const auto& size : sheet_size) {
-            uint16_t width = (uint16_t) (size.x + m_config.extrude());
-            uint16_t height = (uint16_t) (size.y + m_config.extrude());
+            uint16_t width = static_cast<uint16_t>(size.x + m_config.extrude());
+            uint16_t height = static_cast<uint16_t>(size.y + m_config.extrude());
 
             m_atlases.emplace_back(std::clamp<uint16_t>(width, 0, m_config.width()),
                                    std::clamp<uint16_t>(height, 0, m_config.height()),
@@ -193,29 +87,28 @@ namespace wk { namespace AtlasGenerator {
         }
 
         for (size_t i = 0; m_items.size() > i; i++) {
-            libnest2d::Item packer_item = packer_items[i];
+            const packing::PackingItem& packer_item = packer_items[i];
             Item& item = m_items[i];
 
-            auto rotation = packer_item.rotation();
-            int rotation_degree = ((int) rotation.toDegrees()) % 360;
+            const double rotation = packer_item.rotation();
+            const int rotation_degree = static_cast<int>(rotation * 180.0 / std::numbers::pi_v<double>) % 360;
 
-            auto box = packer_item.boundingBox();
+            const packing::Box box = packer_item.bounding_box();
 
             // Item Data
-            item.texture_index = bin_offset + packer_item.binId();
+            item.texture_index = bin_offset + static_cast<size_t>(packer_item.bin_id());
             item.transform.rotation = rotation;
-            item.transform.translation.x = (int32_t) libnest2d::getX(packer_item.translation());
-            item.transform.translation.y = (int32_t) libnest2d::getY(packer_item.translation());
+            item.transform.translation.x = static_cast<int32_t>(packer_item.translation().X);
+            item.transform.translation.y = static_cast<int32_t>(packer_item.translation().Y);
 
-            auto index = item.texture_index;
-            auto x = (uint16_t) (libnest2d::getX(box.minCorner()));
-            auto y = (uint16_t) (libnest2d::getY(box.minCorner()));
+            const auto x = static_cast<uint16_t>(box.min.X);
+            const auto y = static_cast<uint16_t>(box.min.Y);
 
             place_image_to(m_config,
                            *item.image_ref(),
                            x,
                            y,
-                           (Item::FixedRotation) rotation_degree,
+                           static_cast<Item::FixedRotation>(rotation_degree),
                            m_atlases[item.texture_index]);
         }
 
@@ -356,4 +249,4 @@ namespace wk { namespace AtlasGenerator {
             }
         }
     };
-}}
+}

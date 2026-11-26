@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     constexpr size_t MinTextureDimension = 512;
     constexpr size_t MaxTextureDimension = 8096;
 
@@ -11,4 +11,4 @@ namespace wk { namespace AtlasGenerator {
 
     constexpr float MinScaleFactor = 0.25f;
     constexpr float MaxScaleFactor = 10.0f;
-}}
+}

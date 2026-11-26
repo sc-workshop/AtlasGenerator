@@ -1,6 +1,6 @@
 #include "Vertex.h"
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     Vertex::Vertex() {
         xy = Point(0, 0);
         uv = PointUV(0, 0);
@@ -10,4 +10,4 @@ namespace wk { namespace AtlasGenerator {
         xy = Point(x, y);
         uv = PointUV(u, v);
     };
-}}
+}

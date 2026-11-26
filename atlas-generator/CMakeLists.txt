@@ -20,8 +20,8 @@ target_link_libraries(${TARGET} PUBLIC
 
 # Private dependencies
 target_link_libraries(${TARGET} PUBLIC 
-    libnest2d
     Clipper2
+    NLopt::nlopt
 )
 
 target_include_directories(${TARGET}

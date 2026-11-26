@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     using Rect = Rect_t<int32_t>;
     using Point = Point_t<int32_t>;
 
@@ -21,4 +21,4 @@ namespace wk { namespace AtlasGenerator {
         PointUV uv;
         Point xy;
     };
-}}
+}

@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace wk { namespace AtlasGenerator {
+namespace wk::AtlasGenerator {
     class Generator {
     public:
         Generator(const Config& config);
@@ -199,4 +199,4 @@ namespace wk { namespace AtlasGenerator {
         size_t m_item_counter = 0;
         size_t m_duplicate_item_counter = 0;
     };
-}}
+}

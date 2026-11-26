@@ -24,6 +24,7 @@ static void print_help(char* executable) {
     print("--force: rewrite output folder even if it already exists");
     print("--debug: draws and shows atlas of polygons and atlas itself");
     print("--item-debug: draws and shows polygon for each item");
+    print("--density: use the denser max-side sort instead of the faster area-sorted default");
 }
 
 class ProgramOptions {
@@ -47,6 +48,11 @@ public:
 
             if (argument == "--item-debug") {
                 is_item_debug = true;
+                continue;
+            }
+
+            if (argument == "--density") {
+                density_packing = true;
                 continue;
             }
 
@@ -86,6 +92,7 @@ public:
     bool force_output = false;
     bool is_debug = false;
     bool is_item_debug = false;
+    bool density_packing = false;
 };
 
 #pragma region CV Debug Functions
@@ -228,7 +235,14 @@ void process(ProgramOptions& options) {
     }
 
     uint8_t scale_factor = 1;
-    AtlasGenerator::Config config(4096, 4096, scale_factor, 2);
+    AtlasGenerator::Config config(4096,
+                                  4096,
+                                  scale_factor,
+                                  2,
+                                  true,
+                                  3,
+                                  options.density_packing ? AtlasGenerator::PackingPriority::Density
+                                                          : AtlasGenerator::PackingPriority::Speed);
 
     config.progress = [&items](size_t count) {
         std::cout << std::string(100, '\b') << count + 1 << "\\" << items.size() << std::flush;
