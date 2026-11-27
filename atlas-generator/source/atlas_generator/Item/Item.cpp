@@ -8,13 +8,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utility>
 
 namespace wk::AtlasGenerator {
-    Item::Transformation::Transformation(double rotation, Point translation) :
-        rotation(rotation),
-        translation(translation) {
-    }
-
     Item::Item(const RawImage& image, bool sliced) :
         m_sliced(sliced),
         m_image(wk::CreateRef<RawImage>(image)) {
@@ -312,71 +308,48 @@ namespace wk::AtlasGenerator {
         return result;
     }
 
-    void Item::get_9slice(const Rect& guide,
-                          Container<Container<Vertex>>& result,
-                          const Transformation xy_transform) const {
-        if (!is_rectangle())
+    void Item::Generate9Slice(const RectF& guide,
+                              Container<Container<PointF>>& result,
+                              const Container<PointF>& points) {
+        if (points.empty())
             return;
 
-        Point offset;
-        Point size;
-        {
-            Rect xy_bound = bound();
-            xy_bound.left += xy_transform.translation.x;
-            xy_bound.right += xy_transform.translation.x;
-            xy_bound.bottom += xy_transform.translation.y;
-            xy_bound.top += xy_transform.translation.y;
+        constexpr float min = static_cast<float>(std::numeric_limits<int>::min());
+        constexpr float max = static_cast<float>(std::numeric_limits<int>::max());
 
-            offset.x = xy_bound.left;
-            offset.y = xy_bound.bottom;
-            size.x = std::abs(xy_bound.left - xy_bound.right);
-            size.y = std::abs(xy_bound.top - xy_bound.bottom);
-        }
+        // RectF stores (left, top, right, bottom) in its x/y/width/height union.
+        // The clip loop below reads X bounds from `.bottom`/`.top` and Y bounds
+        // from `.left`/`.right`, so encode each cell in that transposed order.
+        const float x_left = std::min(guide.left, guide.right);
+        const float x_right = std::max(guide.left, guide.right);
+        const float y_bottom = std::min(guide.bottom, guide.top);
+        const float y_top = std::max(guide.bottom, guide.top);
 
-        PointUV uv_size;
-        {
-            RectUV uv_bound = bound_uv();
+        const Container<RectF> rects = {
+            {min, x_left, y_bottom, min},
+            {min, x_right, y_bottom, x_left},
+            {min, max, y_bottom, x_right},
 
-            uv_size.x = (uint16_t) std::abs(uv_bound.left - uv_bound.right);
-            uv_size.y = (uint16_t) std::abs(uv_bound.top - uv_bound.bottom);
-        }
+            {y_bottom, x_left, y_top, min},
+            {y_bottom, x_right, y_top, x_left},
+            {y_bottom, max, y_top, x_right},
 
-        Container<PointF> subject;
-        subject.reserve(vertices.size());
-        for (const Vertex& vertex : vertices) {
-            subject.emplace_back((float) (vertex.xy.x + xy_transform.translation.x),
-                                 (float) (vertex.xy.y + xy_transform.translation.y));
-        }
-
-        constexpr int min = std::numeric_limits<int>::min();
-        constexpr int max = std::numeric_limits<int>::max();
-
-        const Container<Rect> rects = {
-            {min, min, guide.left, guide.bottom},
-            {min, guide.bottom, guide.left, guide.top},
-            {guide.left, guide.top, min, max},
-
-            {guide.left, min, guide.right, guide.bottom},
-            {guide.left, guide.bottom, guide.right, guide.top},
-            {guide.left, guide.top, guide.right, max},
-
-            {guide.right, guide.bottom, max, min},
-            {guide.right, guide.top, max, guide.bottom},
-            {guide.right, guide.top, max, max},
+            {y_top, x_left, max, min},
+            {y_top, x_right, max, x_left},
+            {y_top, max, max, x_right},
         };
 
         for (size_t rect_index = 0; rect_index < rects.size(); rect_index++) {
-            const Rect& rect = rects[rect_index];
-            const float left = (float) std::min(rect.bottom, rect.top);
-            const float right = (float) std::max(rect.bottom, rect.top);
-            const float bottom = (float) std::min(rect.left, rect.right);
-            const float top = (float) std::max(rect.left, rect.right);
+            const RectF& rect = rects[rect_index];
+            const float left = std::min(rect.bottom, rect.top);
+            const float right = std::max(rect.bottom, rect.top);
+            const float bottom = std::min(rect.left, rect.right);
+            const float top = std::max(rect.left, rect.right);
 
-            Container<PointF> clipped = subject;
-            clipped = Geometry::clip_polygon_by_line(clipped,
-                                                     PointF(left, bottom),
-                                                     PointF(left, top),
-                                                     PointF(left - 1.0f, bottom));
+            Container<PointF> clipped = Geometry::clip_polygon_by_line(points,
+                                                                       PointF(left, bottom),
+                                                                       PointF(left, top),
+                                                                       PointF(left - 1.0f, bottom));
             if (clipped.empty())
                 continue;
             clipped = Geometry::clip_polygon_by_line(clipped,
@@ -415,12 +388,52 @@ namespace wk::AtlasGenerator {
             }
             std::rotate(clipped.begin(), clipped.begin() + start, clipped.end());
 
+            result.emplace_back(std::move(clipped));
+        }
+    }
+
+    void Item::get_9slice(const RectF& guide,
+                          Container<Container<Vertex>>& result,
+                          const Transformation<float>& xy_transform) const {
+        if (!is_rectangle())
+            return;
+
+        PointF offset;
+        PointF size;
+        {
+            Rect xy_bound = bound();
+
+            offset.x = static_cast<float>(xy_bound.left) + xy_transform.translation.x;
+            offset.y = static_cast<float>(xy_bound.bottom) + xy_transform.translation.y;
+            size.x = std::abs(static_cast<float>(xy_bound.left) - static_cast<float>(xy_bound.right));
+            size.y = std::abs(static_cast<float>(xy_bound.bottom) - static_cast<float>(xy_bound.top));
+        }
+
+        PointUV uv_size;
+        {
+            RectUV uv_bound = bound_uv();
+
+            uv_size.x = (uint16_t) std::abs(uv_bound.left - uv_bound.right);
+            uv_size.y = (uint16_t) std::abs(uv_bound.top - uv_bound.bottom);
+        }
+
+        Container<PointF> subject;
+        subject.reserve(vertices.size());
+        for (const Vertex& vertex : vertices) {
+            subject.emplace_back(static_cast<float>(vertex.xy.x) + xy_transform.translation.x,
+                                 static_cast<float>(vertex.xy.y) + xy_transform.translation.y);
+        }
+
+        Container<Container<PointF>> paths;
+        Generate9Slice(guide, paths, subject);
+
+        for (const Container<PointF>& clipped : paths) {
             Container<Vertex>& result_path = result.emplace_back();
             for (const PointF& path_vertex : clipped) {
                 Vertex& vertex = result_path.emplace_back();
 
-                vertex.xy.x = (int) path_vertex.x;
-                vertex.xy.y = (int) path_vertex.y;
+                vertex.xy.x = static_cast<int32_t>(path_vertex.x);
+                vertex.xy.y = static_cast<int32_t>(path_vertex.y);
 
                 // Remap xy to uv map, normalized to 0.0...1.0 range.
                 const PointF uv_coord((path_vertex.x - offset.x) / size.x, (path_vertex.y - offset.y) / size.y);

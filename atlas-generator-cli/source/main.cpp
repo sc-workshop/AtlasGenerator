@@ -182,7 +182,7 @@ void process(ProgramOptions& options) {
     item_files.reserve(options.files.size());
 
     std::map<size_t, Rect> guides;
-    std::map<size_t, AtlasGenerator::Item::Transformation> guide_transforms;
+    std::map<size_t, AtlasGenerator::Item::Transformation<int32_t>> guide_transforms;
 
     for (fs::path& path : options.files) {
         if (path.extension() != ".png")
@@ -225,7 +225,7 @@ void process(ProgramOptions& options) {
 
             AtlasGenerator::Item item(path, true);
 
-            AtlasGenerator::Item::Transformation transform(0.0, Point(-(item.width() / 2), -(item.height() / 2)));
+            AtlasGenerator::Item::Transformation<int32_t> transform(0.0, Point(-(item.width() / 2), -(item.height() / 2)));
 
             guide_transforms[items.size()] = transform;
 
@@ -357,7 +357,7 @@ void process(ProgramOptions& options) {
 
         for (size_t i = 0; items.size() > i; i++) {
             AtlasGenerator::Item& item = items[i];
-            Item::Transformation& transform = item.transform;
+            Item::Transformation<int32_t>& transform = item.transform;
             std::vector<cv::Point> atlas_contour;
             std::vector<cv::Point> item_contour;
 

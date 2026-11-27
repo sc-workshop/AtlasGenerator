@@ -4,6 +4,7 @@
 #include "core/image/raw_image.h"
 #include "core/math/color_rgba.h"
 
+#include <algorithm>
 #include <array>
 #include <gtest/gtest.h>
 #include <numbers>
@@ -54,8 +55,8 @@ TEST(Item, NineSlicesClippedByGuide) {
     item.generate_image_polygon(config);
 
     Container<Container<Vertex>> result;
-    Item::Transformation transform(0.0, Point(-30, -30));
-    item.get_9slice(Rect(-10, 10, 10, -10), result, transform);
+    Item::Transformation<float> transform(0.0, PointF(-30.f, -30.f));
+    item.get_9slice(RectF(-10.f, 10.f, 10.f, -10.f), result, transform);
 
     const std::vector<std::vector<std::array<int, 4>>> expected = {
         {{-10, -10, 20, 20}, {-30, -10, 0, 20}, {-30, -30, 0, 0}, {-10, -30, 20, 0}},
@@ -77,6 +78,39 @@ TEST(Item, NineSlicesClippedByGuide) {
             EXPECT_EQ((std::array<int, 4> {vertex.xy.x, vertex.xy.y, vertex.uv.x, vertex.uv.y}),
                       expected[path_index][vertex_index]);
         }
+    }
+}
+
+TEST(Item, Generate9SliceUsesAsymmetricGuideAxes) {
+    const Container<PointF> points = {{-30.f, -30.f}, {30.f, -30.f}, {30.f, 30.f}, {-30.f, 30.f}};
+
+    Container<Container<PointF>> regions;
+    Item::Generate9Slice(RectF(-20.f, 15.f, 5.f, -5.f), regions, points);
+
+    const std::vector<std::array<float, 4>> expected = {
+        {-30.f, -30.f, -20.f, -5.f}, {-20.f, -30.f, 5.f, -5.f}, {5.f, -30.f, 30.f, -5.f},
+        {-30.f, -5.f, -20.f, 15.f},  {-20.f, -5.f, 5.f, 15.f},  {5.f, -5.f, 30.f, 15.f},
+        {-30.f, 15.f, -20.f, 30.f},  {-20.f, 15.f, 5.f, 30.f},  {5.f, 15.f, 30.f, 30.f},
+    };
+
+    ASSERT_EQ(regions.size(), expected.size());
+    for (size_t region_index = 0; region_index < expected.size(); region_index++) {
+        ASSERT_FALSE(regions[region_index].empty());
+        float min_x = regions[region_index].front().x;
+        float max_x = min_x;
+        float min_y = regions[region_index].front().y;
+        float max_y = min_y;
+        for (const PointF& point : regions[region_index]) {
+            min_x = std::min(min_x, point.x);
+            max_x = std::max(max_x, point.x);
+            min_y = std::min(min_y, point.y);
+            max_y = std::max(max_y, point.y);
+        }
+
+        EXPECT_FLOAT_EQ(min_x, expected[region_index][0]);
+        EXPECT_FLOAT_EQ(min_y, expected[region_index][1]);
+        EXPECT_FLOAT_EQ(max_x, expected[region_index][2]);
+        EXPECT_FLOAT_EQ(max_y, expected[region_index][3]);
     }
 }
 
@@ -136,7 +170,7 @@ TEST(ItemIterator, WalksIndirectIndices) {
 }
 
 TEST(Transformation, RotatesAndTranslatesPoints) {
-    Item::Transformation transform(0.0, Point(10, 20));
+    Item::Transformation<int32_t> transform(0.0, Point(10, 20));
     Point_t<int> point {1, 2};
 
     transform.transform_point(point);
@@ -149,7 +183,7 @@ TEST(Transformation, UsesExactQuarterTurns) {
     constexpr double pi = std::numbers::pi_v<double>;
 
     {
-        Item::Transformation transform(pi / 2.0, Point(0, 20));
+        Item::Transformation<int32_t> transform(pi / 2.0, Point(0, 20));
         Point_t<int> point {7, 0};
 
         transform.transform_point(point);
@@ -159,7 +193,7 @@ TEST(Transformation, UsesExactQuarterTurns) {
     }
 
     {
-        Item::Transformation transform(pi, Point(20, 0));
+        Item::Transformation<int32_t> transform(pi, Point(20, 0));
         Point_t<int> point {7, 0};
 
         transform.transform_point(point);
@@ -169,7 +203,7 @@ TEST(Transformation, UsesExactQuarterTurns) {
     }
 
     {
-        Item::Transformation transform(3.0 * pi / 2.0, Point(0, 20));
+        Item::Transformation<int32_t> transform(3.0 * pi / 2.0, Point(0, 20));
         Point_t<int> point {7, 0};
 
         transform.transform_point(point);

@@ -28,20 +28,24 @@ namespace wk::AtlasGenerator {
     // alpha path is a rectangle minus up to four corner cuts. 
     class Item {
     public:
-        // Placement transform returned by the packer. Applies to `uv`, not `xy`.
+        // Placement transform
+        template <typename T = int32_t>
         class Transformation {
         public:
-            Transformation(double rotation = 0.0, Point translation = Point(0, 0));
+            Transformation(double rotation = 0.0, Point_t<T> translation = Point_t<T>(0, 0)) :
+                rotation(rotation),
+                translation(translation) {
+            }
 
         public:
             // Rotation in radians
             double rotation;
-            Point translation;
+            Point_t<T> translation;
 
             // Quarter turns use exact sign permutations. Trig near 90/180/270
             // degrees can push integer UV components past ceil().
-            template <typename T>
-            void transform_point(Point_t<T>& vertex) const {
+            template <typename P>
+            void transform_point(Point_t<P>& vertex) const {
                 const double x = static_cast<double>(vertex.x);
                 const double y = static_cast<double>(vertex.y);
                 constexpr double half_pi = std::numbers::pi_v<double> / 2.0;
@@ -80,8 +84,8 @@ namespace wk::AtlasGenerator {
                     transformed_y = y * c + x * s + translation.y;
                 }
 
-                vertex.x = (T) std::ceil(transformed_x);
-                vertex.y = (T) std::ceil(transformed_y);
+                vertex.x = (P) std::ceil(transformed_x);
+                vertex.y = (P) std::ceil(transformed_y);
             }
         };
 
@@ -131,7 +135,7 @@ namespace wk::AtlasGenerator {
         Container<Vertex> vertices;
 
         // Rotation + translation returned by the packer.
-        Transformation transform;
+        Transformation<int32_t> transform;
 
     public:
         // True for sliced items and tiny sprites (width + height < 100).
@@ -166,10 +170,16 @@ namespace wk::AtlasGenerator {
         bool mark_as_preprocessed();
 
     public:
-        // Split a rectangular item into nine guide-clipped vertex paths.
-        void get_9slice(const Rect& guide,
+        // Split arbitrary float points into nine float-guide-clipped paths.
+        // Appends paths to `result`; performs no vertex/UV quantization.
+        static void Generate9Slice(const RectF& guide,
+                                   Container<Container<PointF>>& result,
+                                   const Container<PointF>& points);
+
+        // Split a rectangular item into nine float-guide-clipped vertex paths.
+        void get_9slice(const RectF& guide,
                         Container<Container<Vertex>>& vertices,
-                        const Transformation xy_transform = Transformation()) const;
+                        const Transformation<float>& xy_transform = Transformation<float>()) const;
 
     public:
         // Equal when sharing the same image object or cached image hash.

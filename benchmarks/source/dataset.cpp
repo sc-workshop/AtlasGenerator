@@ -74,7 +74,7 @@ namespace atlas_bench
 
 			if (sliced) {
 				Item& item = result.items.back();
-				item.transform = Item::Transformation(
+				item.transform = Item::Transformation<int32_t>(
 					0.0,
 					Point(-(static_cast<int32_t>(item.width()) / 2), -(static_cast<int32_t>(item.height()) / 2))
 				);
