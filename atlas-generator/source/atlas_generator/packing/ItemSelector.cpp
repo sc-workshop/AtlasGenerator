@@ -17,6 +17,8 @@ namespace wk::AtlasGenerator::packing {
         if (inflation > 0) {
             for (PackingItem& item : items)
                 item.inflate(inflation);
+            for (PackingItem& item : items)
+                item.prepare();
         }
 
         std::vector<NfpPacker> placers;
@@ -76,6 +78,8 @@ namespace wk::AtlasGenerator::packing {
         if (min_object_distance > 0) {
             for (PackingItem& item : items)
                 item.inflate(-inflation);
+            for (PackingItem& item : items)
+                item.prepare();
         }
 
         return placers.size();

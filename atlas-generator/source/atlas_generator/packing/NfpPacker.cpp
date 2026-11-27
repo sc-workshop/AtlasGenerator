@@ -83,6 +83,7 @@ namespace wk::AtlasGenerator::packing {
     }
 
     void NfpPacker::set_initial_position(PackingItem& item, const Box& bin_bbox) const {
+        item.prepare();
         const Box box = item.bounding_box();
         item.translate({bin_bbox.min.X - box.min.X, bin_bbox.min.Y - box.min.Y});
     }
@@ -132,8 +133,10 @@ namespace wk::AtlasGenerator::packing {
         const Point initial_translation = item.translation();
         const Box pile_bbox = m_merged_bbox;
 
+        bool packed = false;
         if (m_items.empty()) {
             set_initial_position(item, m_bin_bbox);
+            item.prepare();
             Point best_translation = item.translation();
             double best_rotation = item.rotation();
             double best_overfit = overfit(bounding_box(item.transformed_shape()), m_bin_bbox);
@@ -142,6 +145,7 @@ namespace wk::AtlasGenerator::packing {
                 item.translation(initial_translation);
                 item.rotation(initial_rotation + rotation);
                 set_initial_position(item, m_bin_bbox);
+                item.prepare();
 
                 const double current_overfit = overfit(bounding_box(item.transformed_shape()), m_bin_bbox);
                 if (current_overfit < best_overfit) {
@@ -153,13 +157,15 @@ namespace wk::AtlasGenerator::packing {
 
             item.rotation(best_rotation);
             item.translation(best_translation);
-            return best_overfit <= 0.0;
+            packed = best_overfit <= 0.0;
+        } else if (m_config.parallel) {
+            packed = try_pack_parallel(item, initial_rotation, initial_translation, pile_bbox);
+        } else {
+            packed = try_pack_serial(item, initial_rotation, initial_translation, pile_bbox);
         }
 
-        if (m_config.parallel) {
-            return try_pack_parallel(item, initial_rotation, initial_translation, pile_bbox);
-        }
-        return try_pack_serial(item, initial_rotation, initial_translation, pile_bbox);
+        item.prepare();
+        return packed;
     }
 
     bool NfpPacker::try_pack_serial(PackingItem& item,
@@ -175,6 +181,7 @@ namespace wk::AtlasGenerator::packing {
             PackingItem current = item;
             current.translation(initial_translation);
             current.rotation(initial_rotation + rotations[rotation_index]);
+            current.prepare();
             const Box rotated_bbox = current.bounding_box();
 
             const Coord lower_width = std::max(pile_bbox.width(), rotated_bbox.width());
@@ -323,6 +330,7 @@ namespace wk::AtlasGenerator::packing {
             context.current = item;
             context.current.translation(initial_translation);
             context.current.rotation(initial_rotation + rotation);
+            context.current.prepare();
             context.rotated_bbox = context.current.bounding_box();
 
             const Coord lower_width = std::max(pile_bbox.width(), context.rotated_bbox.width());
@@ -338,6 +346,8 @@ namespace wk::AtlasGenerator::packing {
 
         const size_t placed_count = m_items.size();
         const size_t nfp_count = rotations.size() * placed_count;
+
+        // Every PackingItem geometry cache is prepared before workers start; accessors are read-only.
         const auto build_all_nfps = [&](size_t linear_index) {
             const size_t rotation_index = linear_index / placed_count;
             const size_t placed_index = linear_index % placed_count;
@@ -504,6 +514,7 @@ namespace wk::AtlasGenerator::packing {
     }
 
     void NfpPacker::accept(const PackingItem& item) {
+        // try_pack() leaves the item prepared; copying keeps the immutable caches for parallel NFP reads.
         m_items.emplace_back(item);
         const Box item_bbox = bounding_box(item.transformed_shape());
         m_merged_bbox = m_has_merged_bbox ? unite(m_merged_bbox, item_bbox) : item_bbox;

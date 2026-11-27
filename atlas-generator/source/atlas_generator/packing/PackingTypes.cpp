@@ -269,42 +269,41 @@ namespace wk::AtlasGenerator::packing {
         return result;
     }
 
+    PackingItem::PackingItem() {
+        prepare();
+    }
+
     PackingItem::PackingItem(const Path& contour) {
         m_shape.contour = contour;
+        prepare();
     }
 
-    const Polygon& PackingItem::inflated_shape() const {
-        if (!m_has_inflation)
-            return m_shape;
-        if (m_inflate_cache_valid)
-            return m_inflate_cache;
+    void PackingItem::prepare() {
+        if (m_prepared)
+            return;
 
         m_inflate_cache = m_shape;
-        m_inflate_cache.contour = offset_path(m_shape.contour, m_inflation);
-        m_inflate_cache.holes.clear();
-        m_inflate_cache_valid = true;
-        return m_inflate_cache;
-    }
+        if (m_has_inflation) {
+            m_inflate_cache.contour = offset_path(m_shape.contour, m_inflation);
+            m_inflate_cache.holes.clear();
+        }
 
-    const Polygon& PackingItem::transformed_shape() const {
-        if (m_transform_cache_valid)
-            return m_transform_cache;
-
-        Polygon result = inflated_shape();
+        m_transform_cache = m_inflate_cache;
         if (m_has_rotation)
-            result = rotate_polygon(result, m_rotation);
+            m_transform_cache = rotate_polygon(m_transform_cache, m_rotation);
         if (m_has_translation)
-            translate_polygon(result, m_translation);
+            translate_polygon(m_transform_cache, m_translation);
 
-        m_transform_cache = std::move(result);
-        m_transform_cache_valid = true;
-        return m_transform_cache;
+        m_bbox_cache = m_has_rotation ? packing::bounding_box(rotate_polygon(m_inflate_cache, m_rotation))
+                                      : packing::bounding_box(m_inflate_cache);
+
+        m_prepared = true;
     }
 
     void PackingItem::inflate(Coord distance) {
         m_inflation += distance;
         m_has_inflation = true;
-        invalidate();
+        mark_dirty();
     }
 
     double PackingItem::area() const {
@@ -312,12 +311,6 @@ namespace wk::AtlasGenerator::packing {
     }
 
     Box PackingItem::bounding_box() const {
-        if (!m_bbox_cache_valid) {
-            m_bbox_cache = m_has_rotation ? packing::bounding_box(rotate_polygon(inflated_shape(), m_rotation))
-                                          : packing::bounding_box(inflated_shape());
-            m_bbox_cache_valid = true;
-        }
-
         return {m_bbox_cache.min + m_translation, m_bbox_cache.max + m_translation};
     }
 
@@ -339,8 +332,7 @@ namespace wk::AtlasGenerator::packing {
 
         m_rotation = value;
         m_has_rotation = true;
-        m_transform_cache_valid = false;
-        m_bbox_cache_valid = false;
+        mark_dirty();
     }
 
     void PackingItem::translation(const Point& value) {
@@ -349,12 +341,10 @@ namespace wk::AtlasGenerator::packing {
 
         m_translation = value;
         m_has_translation = true;
-        m_transform_cache_valid = false;
+        mark_dirty();
     }
 
-    void PackingItem::invalidate() const {
-        m_inflate_cache_valid = false;
-        m_transform_cache_valid = false;
-        m_bbox_cache_valid = false;
+    void PackingItem::mark_dirty() {
+        m_prepared = false;
     }
 }

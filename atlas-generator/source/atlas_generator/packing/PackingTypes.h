@@ -101,12 +101,14 @@ namespace wk::AtlasGenerator::packing {
     // Local clone of the active packing item state machine
     class PackingItem {
     public:
-        PackingItem() = default;
+        PackingItem();
         explicit PackingItem(const Path& contour);
 
+        void prepare();
+
         const Path& shape() const { return m_shape.contour; }
-        const Polygon& inflated_shape() const;
-        const Polygon& transformed_shape() const;
+        const Polygon& inflated_shape() const { return m_inflate_cache; }
+        const Polygon& transformed_shape() const { return m_transform_cache; }
 
         void inflate(Coord distance);
         double area() const;
@@ -125,7 +127,7 @@ namespace wk::AtlasGenerator::packing {
         void bin_id(int id) { m_bin_id = id; }
 
     private:
-        void invalidate() const;
+        void mark_dirty();
 
         Polygon m_shape;
         Coord m_inflation = 0;
@@ -136,11 +138,9 @@ namespace wk::AtlasGenerator::packing {
         bool m_has_translation = false;
         int m_bin_id = BIN_ID_UNSET;
 
-        mutable Polygon m_inflate_cache;
-        mutable bool m_inflate_cache_valid = false;
-        mutable Polygon m_transform_cache;
-        mutable bool m_transform_cache_valid = false;
-        mutable Box m_bbox_cache;
-        mutable bool m_bbox_cache_valid = false;
+        Polygon m_inflate_cache;
+        Polygon m_transform_cache;
+        Box m_bbox_cache;
+        bool m_prepared = false;
     };
 }
